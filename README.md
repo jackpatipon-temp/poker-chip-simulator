@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ♠️ Poker Texas Hold'em Chip Simulator
 
-## Getting Started
+> **A real-time minimal dark mode chip & pot management web application for in-person Texas Hold'em games played with physical cards.**  
+> เว็บแอปพลิเคชันจำลองการลงเดิมพัน จัดการชิป และเงินกองกลาง (Pot) สำหรับเกม Texas Hold'em โดยใช้ไพ่จริงนอกจอ รองรับการเล่นออนไลน์แบบ Real-time หลายอุปกรณ์
 
-First, run the development server:
+---
 
+## 📌 Project Overview & Purpose (ภาพรวมและวัตถุประสงค์)
+
+โปรเจกต์นี้พัฒนาขึ้นเพื่อแก้ไขปัญหาเมื่อเล่นการ์ดเกมหรือโป๊กเกอร์กับกลุ่มเพื่อน/ครอบครัวด้วยสำรับไพ่จริงนอกจอ แต่ไม่มีชิปจริง หรือต้องการความสะดวก รวดเร็ว และความโปร่งใสในการคำนวณเงินกองกลาง (Pots, Side-pots, Blinds, Minimum Raise) 
+
+### ✨ Key Features
+- 🌙 **Minimal Dark Mode UI**: ดีไซน์เรียบหรู ทันสมัย รองรับหน้าจอมือถือเป็นหลัก พร้อมปุ่ม Fullscreen Mode
+- 💡 **Interactive Action Tips**: ปุ่ม Floating Tip อธิบายกติกาเบื้องหลังการ Bet, Call, Raise และการเปลี่ยน Turn แบบ Interactive
+- 👥 **Multiplayer Real-time Sync**: รองรับผู้เล่น 2-10 คน ซิงค์สถานะชิปและตาเดินแบบ Realtime ผ่าน Supabase
+- 🔒 **Google OAuth Authentication**: แสดงภาพโปรไฟล์และชื่อจริงตามบัญชี Google ของผู้เล่น
+- 👑 **Host / Admin Controls**: เจ้าของห้องสามารถอนุมัติผู้เข้าเล่น, กำหนดชิปเริ่มต้น, ทำการ Undo การตัดสินใจที่ผิดพลาด และเปิดระบบโหวต (Vote) ให้ทุกคนมีส่วนร่วม
+- ☕ **Sit Out & AFK Mode**: ระบบขอพักชั่วคราว พร้อมปุ่มสถานะแจ้งเตือนผู้เล่นคนอื่นในโต๊ะ
+
+---
+
+## 🛠️ Tech Stack
+- **Frontend**: Next.js 16 (App Router), React 19, TypeScript
+- **Styling**: Vanilla CSS / Responsive Dark System
+- **Realtime & Backend**: Supabase (PostgreSQL & Realtime Broadcast Channels)
+- **Authentication**: Supabase Auth (Google OAuth)
+- **Deployment**: Vercel
+
+---
+
+## ⚖️ Legal Disclaimer (ข้อสงวนสิทธิ์ทางกฎหมาย)
+
+> [!IMPORTANT]
+> **คำเตือนและการปฏิเสธความรับผิดชอบ:**
+> 
+> เว็บไซต์และซอร์สโค้ดนี้ **จัดทำขึ้นเพื่อการศึกษาทางวิศวกรรมซอฟต์แวร์ และเพื่อความบันเทิง/การแข่งขันกีฬาเชิงกลยุทธ์เท่านั้น**  
+> - ระบบนี้ **ไม่มี** ฟังก์ชันการฝาก-ถอนเงินจริง และ **ไม่สนับสนุนการเล่นการพนันที่มีการลงเดิมพันด้วยเงินสดหรือทรัพย์สินมีค่าใดๆ ทั้งสิ้น**
+> - ผู้พัฒนาไม่มีส่วนเกี่ยวข้องและไม่รับผิดชอบต่อการนำโปรแกรมนี้ไปใช้งานในลักษณะที่ขัดต่อกฎหมาย พ.ร.บ. การพนัน หรือกฎหมายท้องถิ่นของแต่ละพื้นที่
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone & Install Dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/jackpatipon/poker-chip-simulator.git
+cd poker-chip-simulator
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure Environment Variables
+สร้างไฟล์ `.env.local` จาก `.env.example`:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Run Development Server
+```bash
+npm run dev
+```
+เปิดบราวเซอร์ที่ [http://localhost:3000](http://localhost:3000)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📄 License
+This project is licensed under the [MIT License](LICENSE) by Patipon (@jackpatipon).

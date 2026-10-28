@@ -1,0 +1,123 @@
+'use client';
+
+import React from 'react';
+import Image from 'next/image';
+import { Player } from '@/types/poker';
+import { FloatingTip } from './FloatingTip';
+import { Coffee } from 'lucide-react';
+
+interface PlayerSeatProps {
+  player: Player;
+  seatIndex: number;
+  totalSeats: number;
+  isCurrentUser: boolean;
+}
+
+export const PlayerSeat: React.FC<PlayerSeatProps> = ({
+  player,
+  seatIndex,
+  totalSeats,
+  isCurrentUser,
+}) => {
+  // Calculate elliptical coordinates around portrait poker table
+  // Bottom seat (angle = 90 deg) is reserved for current user / index 0
+  const angle = (2 * Math.PI * seatIndex) / totalSeats + Math.PI / 2;
+  const rx = 38; // horizontal radius in %
+  const ry = 42; // vertical radius in %
+
+  const x = 50 + rx * Math.cos(angle);
+  const y = 50 + ry * Math.sin(angle);
+
+  // Vector offset for bet chip towards table center (50%, 50%)
+  const betOffsetX = (50 - x) * 0.35;
+  const betOffsetY = (50 - y) * 0.35;
+
+  const isSittingOut = player.status === 'sitting-out';
+  const isFolded = player.status === 'folded';
+
+  return (
+    <div
+      className="seat-node"
+      style={{
+        left: `${x}%`,
+        top: `${y}%`,
+      }}
+    >
+      {/* Current Bet Chip placed on table towards center */}
+      {player.currentBet > 0 && (
+        <div
+          className="seat-bet-chip"
+          style={{
+            transform: `translate(${betOffsetX}px, ${betOffsetY}px)`,
+          }}
+        >
+          <span style={{ fontSize: '0.62rem' }}>🪙</span>
+          <span>{player.currentBet}</span>
+        </div>
+      )}
+
+      {/* Main Seat Card */}
+      <div
+        className={`seat-card ${player.isTurn ? 'active-turn' : ''} ${
+          isFolded ? 'folded' : ''
+        } ${isSittingOut ? 'sitting-out' : ''}`}
+        style={{
+          outline: isCurrentUser ? '1.5px solid rgba(59, 130, 246, 0.5)' : undefined,
+        }}
+      >
+        {/* Dealer Button */}
+        {player.isDealer && <div className="dealer-chip">D</div>}
+
+        {/* Floating Tip for Sitting Out (AFK) */}
+        {isSittingOut && (
+          <FloatingTip
+            title="ขอพักชั่วคราว (AFK)"
+            text="ผู้เล่นคนนี้ขอพักทำภารกิจส่วนตัว ระบบจะเล่นเกมต่อไปและหมอบ/เช็คให้อัตโนมัติ"
+          />
+        )}
+
+        {/* Google Profile Avatar */}
+        <div className="avatar-wrapper">
+          <Image
+            src={player.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
+            alt={player.name}
+            className="avatar-img"
+            width={32}
+            height={32}
+            unoptimized
+          />
+          {isSittingOut && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: '50%',
+                background: 'rgba(0, 0, 0, 0.6)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Coffee size={14} color="#fca5a5" />
+            </div>
+          )}
+        </div>
+
+        {/* Player Name and Chip Count */}
+        <div className="player-info">
+          <div className="player-name" title={player.name}>
+            {player.name} {isCurrentUser ? '(ฉัน)' : ''}
+          </div>
+          <div className="player-chips">{player.chips.toLocaleString()}</div>
+        </div>
+
+        {/* Action Badge (Check, Call, Raise, Fold, All-in) */}
+        {player.lastAction && (
+          <div className={`seat-action-badge ${player.lastAction}`}>
+            {player.lastAction}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

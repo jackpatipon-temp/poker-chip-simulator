@@ -7,13 +7,36 @@ import {
   restoreHistorySnapshot,
 } from './poker-engine';
 
+import { EventEmitter } from 'events';
+
 // Global in-memory multi-room storage across Next.js module graphs and route handlers
 const globalForRooms = globalThis as unknown as {
   pokerRoomsMap: Map<string, RoomState> | undefined;
+  pokerEmitter: EventEmitter | undefined;
 };
 
 const roomsMap = globalForRooms.pokerRoomsMap ?? new Map<string, RoomState>();
 globalForRooms.pokerRoomsMap = roomsMap;
+
+const roomEmitter = globalForRooms.pokerEmitter ?? new EventEmitter();
+globalForRooms.pokerEmitter = roomEmitter;
+roomEmitter.setMaxListeners(200);
+
+export const subscribeToRoom = (pin: string, callback: (room: RoomState) => void) => {
+  const handler = (updated: RoomState) => {
+    if (updated.roomId === pin) {
+      callback(updated);
+    }
+  };
+  roomEmitter.on('room_updated', handler);
+  return () => {
+    roomEmitter.off('room_updated', handler);
+  };
+};
+
+export const broadcastRoomUpdate = (room: RoomState) => {
+  roomEmitter.emit('room_updated', room);
+};
 
 export const generateRoomPin = (): string => {
   return Math.floor(1000 + Math.random() * 9000).toString();
@@ -58,6 +81,7 @@ export const createServerRoom = (
   newRoom.players = [hostPlayer]; // Real host only
 
   roomsMap.set(pin, newRoom);
+  broadcastRoomUpdate(newRoom);
   return newRoom;
 };
 
@@ -100,6 +124,7 @@ export const requestJoinServerRoom = (
     };
 
     room.players.push(newPlayer);
+    broadcastRoomUpdate(room);
     return { room, request: null, player: newPlayer };
   } else {
     // Put into pending requests for host manual approval
@@ -113,6 +138,7 @@ export const requestJoinServerRoom = (
     };
 
     room.pendingRequests.push(newRequest);
+    broadcastRoomUpdate(room);
     return { room, request: newRequest };
   }
 };
@@ -150,6 +176,7 @@ export const approveJoinRequest = (
   };
 
   room.players.push(newPlayer);
+  broadcastRoomUpdate(room);
   return room;
 };
 
@@ -158,6 +185,7 @@ export const rejectJoinRequest = (pin: string, requestId: string): RoomState | n
   if (!room) return null;
 
   room.pendingRequests = room.pendingRequests.filter(r => r.id !== requestId);
+  broadcastRoomUpdate(room);
   return room;
 };
 
@@ -253,5 +281,6 @@ export const dispatchServerRoomAction = (
   }
 
   roomsMap.set(pin, updated);
+  broadcastRoomUpdate(updated);
   return updated;
 };

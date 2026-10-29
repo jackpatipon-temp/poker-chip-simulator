@@ -137,6 +137,49 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 </button>
               )}
 
+              {!isHost && players.length >= 2 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 6,
+                    marginTop: 6,
+                    padding: '8px 14px',
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    borderRadius: 10,
+                    textAlign: 'center',
+                  }}
+                >
+                  <div style={{ fontSize: '0.76rem', color: '#fcd34d', fontWeight: 700 }}>
+                    ⏳ รอ Host กดเริ่มแจกชิปบนคอมพิวเตอร์
+                  </div>
+                  {onStartHand && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playWin();
+                        triggerHaptic(20);
+                        onStartHand();
+                      }}
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        background: 'rgba(255,255,255,0.12)',
+                        border: '1px solid rgba(255,255,255,0.25)',
+                        color: '#ffffff',
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      กดเริ่ม Hand เอง (โหมดทดสอบ)
+                    </button>
+                  )}
+                </div>
+              )}
+
               {players.length < 2 && (
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textAlign: 'center', maxWidth: 160 }}>
                   รอผู้เล่นอีกอย่างน้อย 1 คน ใส่ PIN นี้เพื่อเข้าโต๊ะ

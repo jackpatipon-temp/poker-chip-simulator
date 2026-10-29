@@ -82,18 +82,18 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
           fontSize: '0.78rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {isMyTurn ? (
             <>
-              <CheckCircle2 size={15} color="#10b981" />
-              <span style={{ color: '#6ee7b7', fontWeight: 700 }}>🎯 ถึงตาคุณแล้ว! เลือกลงเดิมพัน</span>
+              <CheckCircle2 size={16} color="#10b981" />
+              <span style={{ color: '#6ee7b7', fontWeight: 800 }}>🎯 ถึงตาคุณแล้ว! เลือกลงเดิมพัน</span>
             </>
           ) : (
             <>
-              <Clock size={14} color="#9ca3af" />
-              <span style={{ color: '#9ca3af' }}>
+              <Clock size={15} color="#fbbf24" />
+              <span style={{ color: '#e5e7eb', fontSize: '0.82rem' }}>
                 รอตาเดินของ:{' '}
-                <strong style={{ color: '#fbbf24' }}>{activeActor?.name || 'ผู้เล่นคนอื่น'}</strong>
+                <strong style={{ color: '#fbbf24', fontSize: '0.85rem' }}>{activeActor?.name || 'ผู้เล่นคนอื่น'}</strong>
               </span>
             </>
           )}
@@ -105,17 +105,23 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             type="button"
             onClick={() => onSwitchActor(activeActor.id)}
             style={{
-              background: 'rgba(59, 130, 246, 0.2)',
-              border: '1px solid rgba(59, 130, 246, 0.4)',
-              borderRadius: 6,
-              color: '#93c5fd',
-              fontSize: '0.68rem',
-              padding: '2px 8px',
+              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: 8,
+              color: '#ffffff',
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              padding: '6px 12px',
               cursor: 'pointer',
+              boxShadow: '0 2px 10px rgba(37, 99, 235, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
             }}
             title="กดเพื่อสลับมาทดสอบเล่นในบทบาทของคนนี้"
           >
-            เล่นแทนคนนี้ (โหมดทดสอบ)
+            <span>⚡ สลับมาเล่นแทน</span>
+            <span style={{ color: '#fef08a' }}>{activeActor.name}</span>
           </button>
         )}
       </div>

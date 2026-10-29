@@ -66,9 +66,26 @@ export function PokerClientApp({
     }
   }, []);
 
-  // Real-time synchronization polling (600ms) over LAN
+  // Instant Real-Time Synchronization via Server-Sent Events (SSE) + fallback polling
   useEffect(() => {
     if (!currentPin) return;
+
+    let eventSource: EventSource | null = null;
+
+    try {
+      eventSource = new EventSource(`/api/rooms/${currentPin}/stream`);
+      eventSource.onmessage = (event) => {
+        try {
+          const room = JSON.parse(event.data);
+          if (room && room.roomId) {
+            setRoomState(room);
+          }
+        } catch {}
+      };
+      eventSource.onerror = () => {
+        // Fallback polling will handle updates if SSE is interrupted
+      };
+    } catch {}
 
     const fetchLatestRoomState = async () => {
       if (isPollingRef.current) return;
@@ -97,9 +114,14 @@ export function PokerClientApp({
       }
     };
 
-    fetchLatestRoomState();
-    const interval = setInterval(fetchLatestRoomState, 600);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchLatestRoomState, 1500);
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      clearInterval(interval);
+    };
   }, [currentPin]);
 
   // Dispatch game action to the local server
@@ -387,40 +409,6 @@ export function PokerClientApp({
           >
             ย้อนกลับไปหน้าแรก
           </a>
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function() {
-                  var btn = document.getElementById('loading-back-btn');
-                  if (btn) {
-                    function navHome(e) {
-                      if (e) e.preventDefault();
-                      try {
-                        localStorage.removeItem('poker_room_pin');
-                        localStorage.removeItem('poker_user_id');
-                      } catch(err){}
-                      window.location.replace('/');
-                    }
-                    btn.onclick = navHome;
-                    btn.ontouchend = navHome;
-                  }
-                  // Auto-check room existence
-                  var pin = "${currentPin || ''}";
-                  if (pin) {
-                    fetch('/api/rooms/' + pin)
-                      .then(function(r){ return r.json(); })
-                      .then(function(d){
-                        if (!d || !d.success || !d.room) {
-                          alert('ไม่พบห้อง PIN: ' + pin + ' (ห้องอาจถูกปิดไปแล้ว)');
-                          window.location.replace('/');
-                        }
-                      })
-                      .catch(function(){});
-                  }
-                })();
-              `,
-            }}
-          />
         </div>
       ) : (
         /* SCENARIO C: ACTIVE POKER TABLE (RENDERED IMMEDIATELY VIA SSR!) */

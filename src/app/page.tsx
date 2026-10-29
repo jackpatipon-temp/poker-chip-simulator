@@ -16,9 +16,25 @@ import { LobbyView } from '@/components/LobbyView';
 import { Check, X, Loader2 } from 'lucide-react';
 
 export default function PokerGamePage() {
-  const [currentPin, setCurrentPin] = useState<string | null>(null);
+  const [currentPin, setCurrentPin] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const qPin = new URLSearchParams(window.location.search).get('pin');
+      if (qPin) return qPin;
+      return localStorage.getItem('poker_room_pin');
+    }
+    return null;
+  });
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const qUser = new URLSearchParams(window.location.search).get('userId');
+      if (qUser) return qUser;
+      return localStorage.getItem('poker_user_id');
+    }
+    return null;
+  });
+
   const [roomState, setRoomState] = useState<RoomState | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Modals state
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
@@ -33,36 +49,12 @@ export default function PokerGamePage() {
   // Polling ref to prevent overlapping requests
   const isPollingRef = useRef(false);
 
-  // Check Disclaimer and Restore Session from localStorage on mount
+  // Check Disclaimer on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const accepted = localStorage.getItem('poker_disclaimer_accepted');
       if (!accepted) {
         setIsDisclaimerOpen(true);
-      }
-
-      const savedPin = localStorage.getItem('poker_room_pin');
-      const savedUserId = localStorage.getItem('poker_user_id');
-      if (savedPin && savedUserId) {
-        fetch(`/api/rooms/${savedPin}`)
-          .then((res) => {
-            if (res.ok) return res.json();
-            throw new Error('Room not found');
-          })
-          .then((data) => {
-            if (data?.success && data?.room) {
-              setCurrentPin(savedPin);
-              setCurrentUserId(savedUserId);
-              setRoomState(data.room);
-            } else {
-              localStorage.removeItem('poker_room_pin');
-              localStorage.removeItem('poker_user_id');
-            }
-          })
-          .catch(() => {
-            localStorage.removeItem('poker_room_pin');
-            localStorage.removeItem('poker_user_id');
-          });
       }
     }
   }, []);
@@ -158,6 +150,7 @@ export default function PokerGamePage() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('poker_room_pin', data.pin);
       localStorage.setItem('poker_user_id', hostPlayerId);
+      window.location.href = `/?pin=${encodeURIComponent(data.pin)}&userId=${encodeURIComponent(hostPlayerId)}`;
     }
   };
 
@@ -198,6 +191,7 @@ export default function PokerGamePage() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('poker_room_pin', pin);
         localStorage.setItem('poker_user_id', assignedId);
+        window.location.href = `/?pin=${encodeURIComponent(pin)}&userId=${encodeURIComponent(assignedId)}`;
       }
     }
   };
@@ -306,6 +300,7 @@ export default function PokerGamePage() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('poker_room_pin');
       localStorage.removeItem('poker_user_id');
+      window.location.href = '/';
     }
     setCurrentPin(null);
     setRoomState(null);
@@ -315,16 +310,57 @@ export default function PokerGamePage() {
 
   return (
     <div className="app-container">
-      {/* SCENARIO A: LOBBY VIEW (CLEAN START SCREEN) */}
-      {!currentPin || !roomState ? (
+      {/* SCENARIO A: LOBBY VIEW (NO ROOM PIN IN URL OR STATE) */}
+      {!currentPin ? (
         <LobbyView
           localIp="192.168.1.106"
           onCreateRoom={handleCreateRoom}
           onJoinRoom={handleJoinRoom}
           onOpenDisclaimer={() => setIsDisclaimerOpen(true)}
         />
+      ) : !roomState ? (
+        /* SCENARIO B: LOADING POKER TABLE STATE */
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '80vh',
+            gap: 16,
+            textAlign: 'center',
+            padding: 24,
+          }}
+        >
+          <Loader2 size={44} color="#10b981" className="animate-spin" />
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f3f4f6' }}>
+            กำลังเชื่อมต่อเข้าโต๊ะโป๊กเกอร์...
+          </h2>
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              background: 'rgba(0,0,0,0.5)',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
+              padding: '6px 16px',
+              borderRadius: 12,
+              color: '#f59e0b',
+              fontSize: '1.1rem',
+              fontWeight: 800,
+            }}
+          >
+            ห้อง PIN: {currentPin}
+          </div>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={handleLeaveRoom}
+            style={{ marginTop: 12 }}
+          >
+            ย้อนกลับไปหน้าแรก
+          </button>
+        </div>
       ) : (
-        /* SCENARIO B: ACTIVE POKER TABLE */
+        /* SCENARIO C: ACTIVE POKER TABLE */
         <>
           {/* Host Instant Approval Banner */}
           {isHost && roomState.pendingRequests.length > 0 && (

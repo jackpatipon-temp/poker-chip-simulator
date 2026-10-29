@@ -683,11 +683,12 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     .then(function(res) { return res.json(); })
                     .then(function(data) {
                       if (data.success) {
+                        var targetUserId = data.player ? data.player.id : (data.request ? data.request.userId : '');
                         try {
                           localStorage.setItem('poker_room_pin', pin);
-                          if (data.player) localStorage.setItem('poker_user_id', data.player.id);
+                          if (targetUserId) localStorage.setItem('poker_user_id', targetUserId);
                         } catch(e){}
-                        window.location.reload();
+                        window.location.href = '/?pin=' + encodeURIComponent(pin) + (targetUserId ? '&userId=' + encodeURIComponent(targetUserId) : '');
                       } else {
                         showError(data.error || 'ไม่พบห้องที่ระบุ');
                         btnJoin.innerText = 'เข้าห้องทันที (Join Room)';
@@ -741,13 +742,14 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     .then(function(res) { return res.json(); })
                     .then(function(data) {
                       if (data.success) {
+                        var hostId = (data.room && data.room.players && data.room.players[0]) ? data.room.players[0].id : '';
                         try {
                           localStorage.setItem('poker_room_pin', data.pin);
-                          if (data.room && data.room.players && data.room.players[0]) {
-                            localStorage.setItem('poker_user_id', data.room.players[0].id);
+                          if (hostId) {
+                            localStorage.setItem('poker_user_id', hostId);
                           }
                         } catch(e){}
-                        window.location.reload();
+                        window.location.href = '/?pin=' + encodeURIComponent(data.pin) + (hostId ? '&userId=' + encodeURIComponent(hostId) : '');
                       } else {
                         showError(data.error || 'สร้างห้องไม่สำเร็จ');
                         btnCreate.innerText = 'สร้างห้องและเข้าโต๊ะ (Create Room)';

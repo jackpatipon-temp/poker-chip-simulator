@@ -223,6 +223,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           }}
         >
           <button
+            id="tab-btn-join"
             type="button"
             onClick={() => handleTabChange('join')}
             style={{
@@ -247,6 +248,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           </button>
 
           <button
+            id="tab-btn-create"
             type="button"
             onClick={() => handleTabChange('create')}
             style={{
@@ -272,93 +274,195 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         </div>
 
         {/* Error Notification */}
-        {errorMsg && (
-          <div
-            style={{
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: 10,
-              padding: '8px 12px',
-              fontSize: '0.8rem',
-              color: '#fca5a5',
-              marginBottom: 14,
-              textAlign: 'center',
-              fontWeight: 600,
-            }}
-          >
-            {errorMsg}
-          </div>
-        )}
+        <div
+          id="lobby-error-msg"
+          style={{
+            display: errorMsg ? 'block' : 'none',
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 10,
+            padding: '8px 12px',
+            fontSize: '0.8rem',
+            color: '#fca5a5',
+            marginBottom: 14,
+            textAlign: 'center',
+            fontWeight: 600,
+          }}
+        >
+          {errorMsg}
+        </div>
 
         {/* =========================================================
             TAB 1: JOIN WITH PIN (ACTIVE BY DEFAULT FOR MOBILE PLAYERS)
             ========================================================= */}
-        {activeTab === 'join' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <label style={{ fontSize: '0.8rem', color: '#34d399', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span>🔑 รหัสห้อง (Room PIN)</span>
-              </label>
-              <input
-                type="text"
-                value={joinPin}
-                onChange={(e) => setJoinPin(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleJoin();
-                }}
-                placeholder="เช่น 5931"
-                maxLength={8}
-                autoFocus
-                style={{
-                  width: '100%',
-                  background: 'rgba(0,0,0,0.55)',
-                  border: '2px solid #f59e0b',
-                  borderRadius: 12,
-                  padding: '12px 10px',
-                  color: '#f59e0b',
-                  fontSize: 22,
-                  fontFamily: 'var(--font-mono)',
-                  letterSpacing: 4,
-                  textAlign: 'center',
-                  fontWeight: 900,
-                  marginTop: 4,
-                }}
-              />
-            </div>
+        <div
+          id="tab-content-join"
+          style={{
+            display: activeTab === 'join' ? 'flex' : 'none',
+            flexDirection: 'column',
+            gap: 14,
+          }}
+        >
+          <div>
+            <label style={{ fontSize: '0.8rem', color: '#34d399', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span>🔑 รหัสห้อง (Room PIN)</span>
+            </label>
+            <input
+              id="input-join-pin"
+              type="text"
+              value={joinPin}
+              onChange={(e) => setJoinPin(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleJoin();
+              }}
+              placeholder="เช่น 5931"
+              maxLength={8}
+              autoFocus
+              style={{
+                width: '100%',
+                background: 'rgba(0,0,0,0.55)',
+                border: '2px solid #f59e0b',
+                borderRadius: 12,
+                padding: '12px 10px',
+                color: '#f59e0b',
+                fontSize: 22,
+                fontFamily: 'var(--font-mono)',
+                letterSpacing: 4,
+                textAlign: 'center',
+                fontWeight: 900,
+                marginTop: 4,
+              }}
+            />
+          </div>
 
-            <div>
-              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                ชื่อของคุณ (Player Name)
-              </label>
-              <input
-                type="text"
-                value={joinPlayerName}
-                onChange={(e) => setJoinPlayerName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleJoin();
-                }}
-                placeholder="เช่น แฟน / ผู้เล่น 2"
-                style={{
-                  width: '100%',
-                  background: 'rgba(0,0,0,0.5)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 10,
-                  padding: 12,
-                  color: 'white',
-                  fontSize: 16,
-                  marginTop: 4,
-                }}
-              />
-            </div>
+          <div>
+            <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              ชื่อของคุณ (Player Name)
+            </label>
+            <input
+              id="input-join-name"
+              type="text"
+              value={joinPlayerName}
+              onChange={(e) => setJoinPlayerName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleJoin();
+              }}
+              placeholder="เช่น แฟน / ผู้เล่น 2"
+              style={{
+                width: '100%',
+                background: 'rgba(0,0,0,0.5)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 10,
+                padding: 12,
+                color: 'white',
+                fontSize: 16,
+                marginTop: 4,
+              }}
+            />
+          </div>
 
+          <div>
+            <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              จำนวนชิปเริ่มต้น
+            </label>
+            <input
+              id="input-join-chips"
+              type="number"
+              value={joinChips}
+              onChange={(e) => setJoinChips(Number(e.target.value))}
+              min={100}
+              step={100}
+              style={{
+                width: '100%',
+                background: 'rgba(0,0,0,0.5)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 10,
+                padding: 12,
+                color: '#f59e0b',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 700,
+                fontSize: 16,
+                marginTop: 4,
+              }}
+            />
+          </div>
+
+          <button
+            id="btn-join-room"
+            type="button"
+            className="primary-btn"
+            disabled={isLoading}
+            onClick={() => handleJoin()}
+            style={{
+              marginTop: 4,
+              minHeight: 52,
+              fontSize: '1rem',
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              boxShadow: '0 6px 20px rgba(16, 185, 129, 0.45)',
+              border: '1px solid rgba(52, 211, 153, 0.4)',
+              cursor: 'pointer',
+            }}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                <span>กำลังเชื่อมต่อห้อง...</span>
+              </>
+            ) : (
+              <>
+                <ArrowRight size={20} />
+                <span>เข้าห้องทันที (Join Room)</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* =========================================================
+            TAB 2: CREATE ROOM (FOR HOST / ADMIN)
+            ========================================================= */}
+        <div
+          id="tab-content-create"
+          style={{
+            display: activeTab === 'create' ? 'flex' : 'none',
+            flexDirection: 'column',
+            gap: 14,
+          }}
+        >
+          <div>
+            <label style={{ fontSize: '0.78rem', color: '#60a5fa', fontWeight: 700 }}>
+              ชื่อผู้สร้างห้อง (Admin / Host)
+            </label>
+            <input
+              id="input-host-name"
+              type="text"
+              value={hostName}
+              onChange={(e) => setHostName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreate();
+              }}
+              placeholder="เช่น Patipon"
+              style={{
+                width: '100%',
+                background: 'rgba(0,0,0,0.5)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 10,
+                padding: 12,
+                color: 'white',
+                fontSize: 16,
+                marginTop: 4,
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
-              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                จำนวนชิปเริ่มต้น
-              </label>
+              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>ชิปเริ่มต้น</label>
               <input
+                id="input-host-chips"
                 type="number"
-                value={joinChips}
-                onChange={(e) => setJoinChips(Number(e.target.value))}
+                value={startingChips}
+                onChange={(e) => setStartingChips(Number(e.target.value))}
                 min={100}
                 step={100}
                 style={{
@@ -376,190 +480,108 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               />
             </div>
 
-            <button
-              type="button"
-              className="primary-btn"
-              disabled={isLoading}
-              onClick={() => handleJoin()}
-              style={{
-                marginTop: 4,
-                minHeight: 52,
-                fontSize: '1rem',
-                fontWeight: 800,
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                boxShadow: '0 6px 20px rgba(16, 185, 129, 0.45)',
-                border: '1px solid rgba(52, 211, 153, 0.4)',
-                cursor: 'pointer',
-              }}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  <span>กำลังเชื่อมต่อห้อง...</span>
-                </>
-              ) : (
-                <>
-                  <ArrowRight size={20} />
-                  <span>เข้าห้องทันที (Join Room)</span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* =========================================================
-            TAB 2: CREATE ROOM (FOR HOST / ADMIN)
-            ========================================================= */}
-        {activeTab === 'create' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <label style={{ fontSize: '0.78rem', color: '#60a5fa', fontWeight: 700 }}>
-                ชื่อผู้สร้างห้อง (Admin / Host)
+              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                กำหนด PIN (ไม่บังคับ)
               </label>
               <input
+                id="input-custom-pin"
                 type="text"
-                value={hostName}
-                onChange={(e) => setHostName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreate();
-                }}
-                placeholder="เช่น Patipon"
+                value={customPin}
+                onChange={(e) => setCustomPin(e.target.value)}
+                placeholder="สุ่ม 4 หลัก"
+                maxLength={6}
                 style={{
                   width: '100%',
                   background: 'rgba(0,0,0,0.5)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 10,
                   padding: 12,
-                  color: 'white',
+                  color: '#93c5fd',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
                   fontSize: 16,
                   marginTop: 4,
                 }}
               />
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>ชิปเริ่มต้น</label>
-                <input
-                  type="number"
-                  value={startingChips}
-                  onChange={(e) => setStartingChips(Number(e.target.value))}
-                  min={100}
-                  step={100}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(0,0,0,0.5)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 10,
-                    padding: 12,
-                    color: '#f59e0b',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
-                    fontSize: 16,
-                    marginTop: 4,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  กำหนด PIN (ไม่บังคับ)
-                </label>
-                <input
-                  type="text"
-                  value={customPin}
-                  onChange={(e) => setCustomPin(e.target.value)}
-                  placeholder="สุ่ม 4 หลัก"
-                  maxLength={6}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(0,0,0,0.5)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 10,
-                    padding: 12,
-                    color: '#93c5fd',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
-                    fontSize: 16,
-                    marginTop: 4,
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Small Blind</label>
-                <input
-                  type="number"
-                  value={smallBlind}
-                  onChange={(e) => setSmallBlind(Number(e.target.value))}
-                  min={1}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(0,0,0,0.5)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    padding: 10,
-                    color: 'white',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 16,
-                    marginTop: 4,
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Big Blind</label>
-                <input
-                  type="number"
-                  value={bigBlind}
-                  onChange={(e) => setBigBlind(Number(e.target.value))}
-                  min={2}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(0,0,0,0.5)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    padding: 10,
-                    color: 'white',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 16,
-                    marginTop: 4,
-                  }}
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="primary-btn"
-              disabled={isLoading}
-              onClick={() => handleCreate()}
-              style={{
-                marginTop: 4,
-                minHeight: 52,
-                fontSize: '1rem',
-                fontWeight: 800,
-                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                boxShadow: '0 6px 20px rgba(37, 99, 235, 0.45)',
-                border: '1px solid rgba(96, 165, 250, 0.4)',
-                cursor: 'pointer',
-              }}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  <span>กำลังสร้างห้อง...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles size={20} />
-                  <span>สร้างห้องและเข้าโต๊ะ (Create Room)</span>
-                </>
-              )}
-            </button>
           </div>
-        )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Small Blind</label>
+              <input
+                id="input-sb"
+                type="number"
+                value={smallBlind}
+                onChange={(e) => setSmallBlind(Number(e.target.value))}
+                min={1}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.5)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 8,
+                  padding: 10,
+                  color: 'white',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 16,
+                  marginTop: 4,
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Big Blind</label>
+              <input
+                id="input-bb"
+                type="number"
+                value={bigBlind}
+                onChange={(e) => setBigBlind(Number(e.target.value))}
+                min={2}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.5)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 8,
+                  padding: 10,
+                  color: 'white',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 16,
+                  marginTop: 4,
+                }}
+              />
+            </div>
+          </div>
+
+          <button
+            id="btn-create-room"
+            type="button"
+            className="primary-btn"
+            disabled={isLoading}
+            onClick={() => handleCreate()}
+            style={{
+              marginTop: 4,
+              minHeight: 52,
+              fontSize: '1rem',
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+              boxShadow: '0 6px 20px rgba(37, 99, 235, 0.45)',
+              border: '1px solid rgba(96, 165, 250, 0.4)',
+              cursor: 'pointer',
+            }}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                <span>กำลังสร้างห้อง...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={20} />
+                <span>สร้างห้องและเข้าโต๊ะ (Create Room)</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Footer Disclaimer Link */}
@@ -581,6 +603,175 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         <ShieldAlert size={14} color="#ef4444" />
         <span>ข้อตกลงและคำเตือนการใช้งาน (ไม่สนับสนุนการพนันเงินจริง)</span>
       </button>
+
+      {/* ====================================================================
+          BULLETPROOF NATIVE TOUCH/CLICK CONTROLLER
+          Executes immediately on DOM ready even if React hydration is delayed!
+          ==================================================================== */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (function() {
+              function initNativeLobby() {
+                // Tab switching fallback
+                var tabJoin = document.getElementById('tab-btn-join');
+                var tabCreate = document.getElementById('tab-btn-create');
+                var contentJoin = document.getElementById('tab-content-join');
+                var contentCreate = document.getElementById('tab-content-create');
+                var errBox = document.getElementById('lobby-error-msg');
+
+                function showError(msg) {
+                  if (errBox) {
+                    errBox.textContent = msg;
+                    errBox.style.display = 'block';
+                  } else {
+                    alert(msg);
+                  }
+                }
+
+                if (tabJoin && tabCreate && contentJoin && contentCreate) {
+                  tabJoin.onclick = function() {
+                    contentJoin.style.display = 'flex';
+                    contentCreate.style.display = 'none';
+                    tabJoin.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                    tabJoin.style.color = '#ffffff';
+                    tabCreate.style.background = 'transparent';
+                    tabCreate.style.color = 'var(--text-muted)';
+                    if (errBox) errBox.style.display = 'none';
+                  };
+                  tabCreate.onclick = function() {
+                    contentCreate.style.display = 'flex';
+                    contentJoin.style.display = 'none';
+                    tabCreate.style.background = 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)';
+                    tabCreate.style.color = '#ffffff';
+                    tabJoin.style.background = 'transparent';
+                    tabJoin.style.color = 'var(--text-muted)';
+                    if (errBox) errBox.style.display = 'none';
+                  };
+                }
+
+                // Native Join Room action
+                var btnJoin = document.getElementById('btn-join-room');
+                if (btnJoin) {
+                  btnJoin.onclick = function(e) {
+                    var pinIn = document.getElementById('input-join-pin');
+                    var nameIn = document.getElementById('input-join-name');
+                    var chipsIn = document.getElementById('input-join-chips');
+                    var pin = pinIn ? pinIn.value.trim() : '';
+                    var name = nameIn ? nameIn.value.trim() : '';
+                    var chips = chipsIn ? Number(chipsIn.value) || 1000 : 1000;
+
+                    if (!pin) {
+                      showError('กรุณากรอกรหัสห้อง (PIN)');
+                      if (pinIn) pinIn.focus();
+                      return;
+                    }
+                    if (!name) {
+                      showError('กรุณากรอกชื่อของคุณ');
+                      if (nameIn) nameIn.focus();
+                      return;
+                    }
+
+                    btnJoin.innerText = 'กำลังเชื่อมต่อห้อง...';
+                    btnJoin.disabled = true;
+
+                    fetch('/api/rooms/' + encodeURIComponent(pin), {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ type: 'JOIN', playerName: name, requestedChips: chips })
+                    })
+                    .then(function(res) { return res.json(); })
+                    .then(function(data) {
+                      if (data.success) {
+                        try {
+                          localStorage.setItem('poker_room_pin', pin);
+                          if (data.player) localStorage.setItem('poker_user_id', data.player.id);
+                        } catch(e){}
+                        window.location.reload();
+                      } else {
+                        showError(data.error || 'ไม่พบห้องที่ระบุ');
+                        btnJoin.innerText = 'เข้าห้องทันที (Join Room)';
+                        btnJoin.disabled = false;
+                      }
+                    })
+                    .catch(function(err) {
+                      showError('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + (err.message || 'Error'));
+                      btnJoin.innerText = 'เข้าห้องทันที (Join Room)';
+                      btnJoin.disabled = false;
+                    });
+                  };
+                }
+
+                // Native Create Room action
+                var btnCreate = document.getElementById('btn-create-room');
+                if (btnCreate) {
+                  btnCreate.onclick = function(e) {
+                    var hostIn = document.getElementById('input-host-name');
+                    var chipsIn = document.getElementById('input-host-chips');
+                    var customPinIn = document.getElementById('input-custom-pin');
+                    var sbIn = document.getElementById('input-sb');
+                    var bbIn = document.getElementById('input-bb');
+
+                    var hostName = hostIn ? hostIn.value.trim() : '';
+                    var startingChips = chipsIn ? Number(chipsIn.value) || 1000 : 1000;
+                    var customPin = customPinIn ? customPinIn.value.trim() : '';
+                    var sb = sbIn ? Number(sbIn.value) || 5 : 5;
+                    var bb = bbIn ? Number(bbIn.value) || 10 : 10;
+
+                    if (!hostName) {
+                      showError('กรุณากรอกชื่อผู้สร้างห้อง');
+                      if (hostIn) hostIn.focus();
+                      return;
+                    }
+
+                    btnCreate.innerText = 'กำลังสร้างห้อง...';
+                    btnCreate.disabled = true;
+
+                    fetch('/api/rooms', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        hostName: hostName,
+                        startingChips: startingChips,
+                        smallBlind: sb,
+                        bigBlind: bb,
+                        customPin: customPin || undefined
+                      })
+                    })
+                    .then(function(res) { return res.json(); })
+                    .then(function(data) {
+                      if (data.success) {
+                        try {
+                          localStorage.setItem('poker_room_pin', data.pin);
+                          if (data.room && data.room.players && data.room.players[0]) {
+                            localStorage.setItem('poker_user_id', data.room.players[0].id);
+                          }
+                        } catch(e){}
+                        window.location.reload();
+                      } else {
+                        showError(data.error || 'สร้างห้องไม่สำเร็จ');
+                        btnCreate.innerText = 'สร้างห้องและเข้าโต๊ะ (Create Room)';
+                        btnCreate.disabled = false;
+                      }
+                    })
+                    .catch(function(err) {
+                      showError('เกิดข้อผิดพลาดในการสร้างห้อง: ' + (err.message || 'Error'));
+                      btnCreate.innerText = 'สร้างห้องและเข้าโต๊ะ (Create Room)';
+                      btnCreate.disabled = false;
+                    });
+                  };
+                }
+              }
+
+              if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initNativeLobby);
+              } else {
+                initNativeLobby();
+              }
+            })();
+          `,
+        }}
+      />
     </div>
   );
 };

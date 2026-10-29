@@ -76,9 +76,17 @@ export function PokerClientApp({
       eventSource = new EventSource(`/api/rooms/${currentPin}/stream`);
       eventSource.onmessage = (event) => {
         try {
-          const room = JSON.parse(event.data);
-          if (room && room.roomId) {
-            setRoomState(room);
+          const data = JSON.parse(event.data);
+          if (data && data.deleted) {
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('poker_room_pin');
+              localStorage.removeItem('poker_user_id');
+              window.location.replace('/');
+            }
+            return;
+          }
+          if (data && data.roomId) {
+            setRoomState(data);
           }
         } catch {}
       };
@@ -94,6 +102,14 @@ export function PokerClientApp({
         const res = await fetch(`/api/rooms/${currentPin}`);
         if (res.ok) {
           const data = await res.json();
+          if (data.deleted) {
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('poker_room_pin');
+              localStorage.removeItem('poker_user_id');
+              window.location.replace('/');
+            }
+            return;
+          }
           if (data.success && data.room) {
             setRoomState(data.room);
           }
@@ -136,6 +152,14 @@ export function PokerClientApp({
         });
         if (res.ok) {
           const data = await res.json();
+          if (data.deleted) {
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('poker_room_pin');
+              localStorage.removeItem('poker_user_id');
+              window.location.replace('/');
+            }
+            return;
+          }
           if (data.success && data.room) {
             setRoomState(data.room);
           }

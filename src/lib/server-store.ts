@@ -22,20 +22,40 @@ const roomEmitter = globalForRooms.pokerEmitter ?? new EventEmitter();
 globalForRooms.pokerEmitter = roomEmitter;
 roomEmitter.setMaxListeners(200);
 
-export const subscribeToRoom = (pin: string, callback: (room: RoomState) => void) => {
+export const subscribeToRoom = (
+  pin: string,
+  callback: (room: RoomState) => void,
+  onDelete?: () => void
+) => {
   const handler = (updated: RoomState) => {
     if (updated.roomId === pin) {
       callback(updated);
     }
   };
+  const deleteHandler = (deletedPin: string) => {
+    if (deletedPin === pin && onDelete) {
+      onDelete();
+    }
+  };
   roomEmitter.on('room_updated', handler);
+  roomEmitter.on('room_deleted', deleteHandler);
   return () => {
     roomEmitter.off('room_updated', handler);
+    roomEmitter.off('room_deleted', deleteHandler);
   };
 };
 
 export const broadcastRoomUpdate = (room: RoomState) => {
   roomEmitter.emit('room_updated', room);
+};
+
+export const deleteServerRoom = (pin: string): boolean => {
+  if (roomsMap.has(pin)) {
+    roomsMap.delete(pin);
+    roomEmitter.emit('room_deleted', pin);
+    return true;
+  }
+  return false;
 };
 
 export const generateRoomPin = (): string => {
@@ -244,6 +264,11 @@ export const dispatchServerRoomAction = (
     case 'LEAVE':
       if (actionPayload.playerId) {
         updated.players = updated.players.filter(p => p.id !== actionPayload.playerId);
+        // Transfer host if host left and other players remain
+        if (updated.players.length > 0 && !updated.players.some(p => p.id === updated.hostId)) {
+          updated.hostId = updated.players[0].id;
+          updated.players[0].isHost = true;
+        }
       }
       break;
 
@@ -278,6 +303,14 @@ export const dispatchServerRoomAction = (
     case 'VOTE_CLOSE':
       updated.activeVote = null;
       break;
+  }
+
+  // CRITICAL REQUIREMENT: If 0 players remain in the room, delete it permanently!
+  // The room PIN cannot be used or joined anymore.
+  if (updated.players.length === 0) {
+    roomsMap.delete(pin);
+    roomEmitter.emit('room_deleted', pin);
+    return null;
   }
 
   roomsMap.set(pin, updated);

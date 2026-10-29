@@ -25,14 +25,25 @@ export async function GET(
       controller.enqueue(encoder.encode(initialPayload));
 
       // Subscribe to instant broadcast events
-      const unsubscribe = subscribeToRoom(pin, (updatedRoom) => {
-        try {
-          const updatePayload = `data: ${JSON.stringify(updatedRoom)}\n\n`;
-          controller.enqueue(encoder.encode(updatePayload));
-        } catch {
-          // Stream closed
+      const unsubscribe = subscribeToRoom(
+        pin,
+        (updatedRoom) => {
+          try {
+            const updatePayload = `data: ${JSON.stringify(updatedRoom)}\n\n`;
+            controller.enqueue(encoder.encode(updatePayload));
+          } catch {
+            // Stream closed
+          }
+        },
+        () => {
+          // Room deleted when 0 players remain
+          try {
+            const deletePayload = `data: ${JSON.stringify({ deleted: true })}\n\n`;
+            controller.enqueue(encoder.encode(deletePayload));
+            controller.close();
+          } catch {}
         }
-      });
+      );
 
       // Heartbeat ping every 15 seconds to keep LAN connection alive
       const heartbeatInterval = setInterval(() => {

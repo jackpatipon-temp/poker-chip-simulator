@@ -5,6 +5,7 @@ import {
   approveJoinRequest,
   rejectJoinRequest,
   dispatchServerRoomAction,
+  deleteServerRoom,
 } from '@/lib/server-store';
 
 export async function GET(
@@ -15,7 +16,7 @@ export async function GET(
   const room = getServerRoom(pin);
 
   if (!room) {
-    return NextResponse.json({ success: false, error: 'ไม่พบห้องที่ระบุ' }, { status: 404 });
+    return NextResponse.json({ success: false, error: 'ไม่พบห้องที่ระบุ หรือห้องถูกปิดแล้วเนื่องจากไม่มีผู้เล่น' }, { status: 404 });
   }
 
   return NextResponse.json({ success: true, room });
@@ -49,8 +50,21 @@ export async function POST(
 
     // Game action dispatch
     const updated = dispatchServerRoomAction(pin, body);
+    if (!updated) {
+      // Room was permanently deleted because 0 players remain
+      return NextResponse.json({ success: true, room: null, deleted: true });
+    }
     return NextResponse.json({ success: true, room: updated });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Action failed' }, { status: 500 });
   }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ pin: string }> }
+) {
+  const { pin } = await params;
+  const deleted = deleteServerRoom(pin);
+  return NextResponse.json({ success: deleted, deleted: true });
 }

@@ -4,9 +4,11 @@ import React from 'react';
 import { Player } from '@/types/poker';
 import { FloatingTip } from './FloatingTip';
 import { sound, triggerHaptic } from '@/lib/sound';
+import { Clock, CheckCircle2 } from 'lucide-react';
 
 interface ActionControlsProps {
   player: Player | null;
+  activeActor: Player | null;
   currentHighestBet: number;
   minRaise: number;
   isMyTurn: boolean;
@@ -14,10 +16,12 @@ interface ActionControlsProps {
   onCheck: () => void;
   onCall: () => void;
   onOpenRaiseModal: () => void;
+  onSwitchActor?: (playerId: string) => void;
 }
 
 export const ActionControls: React.FC<ActionControlsProps> = ({
   player,
+  activeActor,
   currentHighestBet,
   minRaise,
   isMyTurn,
@@ -25,6 +29,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   onCheck,
   onCall,
   onOpenRaiseModal,
+  onSwitchActor,
 }) => {
   if (!player) return null;
 
@@ -64,6 +69,57 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
 
   return (
     <div className="bottom-controls">
+      {/* Turn Status Banner */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 12px',
+          borderRadius: 8,
+          background: isMyTurn ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.3)',
+          border: isMyTurn ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-subtle)',
+          fontSize: '0.78rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isMyTurn ? (
+            <>
+              <CheckCircle2 size={15} color="#10b981" />
+              <span style={{ color: '#6ee7b7', fontWeight: 700 }}>🎯 ถึงตาคุณแล้ว! เลือกลงเดิมพัน</span>
+            </>
+          ) : (
+            <>
+              <Clock size={14} color="#9ca3af" />
+              <span style={{ color: '#9ca3af' }}>
+                รอตาเดินของ:{' '}
+                <strong style={{ color: '#fbbf24' }}>{activeActor?.name || 'ผู้เล่นคนอื่น'}</strong>
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* LAN testing switcher: allows acting on behalf of active actor when testing alone */}
+        {!isMyTurn && activeActor && onSwitchActor && (
+          <button
+            type="button"
+            onClick={() => onSwitchActor(activeActor.id)}
+            style={{
+              background: 'rgba(59, 130, 246, 0.2)',
+              border: '1px solid rgba(59, 130, 246, 0.4)',
+              borderRadius: 6,
+              color: '#93c5fd',
+              fontSize: '0.68rem',
+              padding: '2px 8px',
+              cursor: 'pointer',
+            }}
+            title="กดเพื่อสลับมาทดสอบเล่นในบทบาทของคนนี้"
+          >
+            เล่นแทนคนนี้ (โหมดทดสอบ)
+          </button>
+        )}
+      </div>
+
       <div className="action-buttons-row">
         {/* FOLD BUTTON */}
         <div className="action-btn-wrapper">

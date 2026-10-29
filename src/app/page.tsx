@@ -13,6 +13,7 @@ import { VoteModal } from '@/components/VoteModal';
 import { SettingsModal } from '@/components/SettingsModal';
 import { DisclaimerModal } from '@/components/DisclaimerModal';
 import { LobbyView } from '@/components/LobbyView';
+import { Check, X, Loader2 } from 'lucide-react';
 
 export default function PokerGamePage() {
   const [currentPin, setCurrentPin] = useState<string | null>(null);
@@ -32,17 +33,24 @@ export default function PokerGamePage() {
   // Polling ref to prevent overlapping requests
   const isPollingRef = useRef(false);
 
-  // Check Disclaimer on mount (Requirement 2)
+  // Check Disclaimer and Restore Session from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const accepted = localStorage.getItem('poker_disclaimer_accepted');
       if (!accepted) {
         setIsDisclaimerOpen(true);
       }
+
+      const savedPin = localStorage.getItem('poker_room_pin');
+      const savedUserId = localStorage.getItem('poker_user_id');
+      if (savedPin && savedUserId) {
+        setCurrentPin(savedPin);
+        setCurrentUserId(savedUserId);
+      }
     }
   }, []);
 
-  // Real-time synchronization polling (500ms) over LAN
+  // Real-time synchronization polling (600ms) over LAN
   useEffect(() => {
     if (!currentPin) return;
 
@@ -119,7 +127,13 @@ export default function PokerGamePage() {
 
     setCurrentPin(data.pin);
     setRoomState(data.room);
-    setCurrentUserId(data.room.players[0].id);
+    const hostPlayerId = data.room.players[0].id;
+    setCurrentUserId(hostPlayerId);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('poker_room_pin', data.pin);
+      localStorage.setItem('poker_user_id', hostPlayerId);
+    }
   };
 
   // Join Room handler
@@ -141,15 +155,25 @@ export default function PokerGamePage() {
 
     setCurrentPin(pin);
     setRoomState(data.room);
-    if (data.request) {
-      setCurrentUserId(data.request.userId);
-      alert('ส่งคำขอเข้าห้องเรียบร้อย! กรุณารอ Admin อนุมัติบนเครื่องโฮสต์');
+
+    let assignedId = '';
+    if (data.player) {
+      assignedId = data.player.id;
+    } else if (data.request) {
+      assignedId = data.request.userId;
     } else {
-      // Re-joined existing seat
       const existing = data.room.players.find(
         (p: Player) => p.name.toLowerCase() === playerName.toLowerCase()
       );
-      if (existing) setCurrentUserId(existing.id);
+      if (existing) assignedId = existing.id;
+    }
+
+    if (assignedId) {
+      setCurrentUserId(assignedId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('poker_room_pin', pin);
+        localStorage.setItem('poker_user_id', assignedId);
+      }
     }
   };
 
@@ -158,6 +182,7 @@ export default function PokerGamePage() {
   const isHost = currentUserId === roomState?.hostId;
   const activeActor = roomState ? roomState.players[roomState.activePlayerIndex] : null;
   const isMyTurn = activeActor?.id === currentUserId;
+  const isWaitingForApproval = roomState?.pendingRequests.some((r) => r.userId === currentUserId);
 
   // Actions
   const handleFold = useCallback(() => {
@@ -253,6 +278,10 @@ export default function PokerGamePage() {
     if (currentUserId) {
       sendRoomAction({ type: 'LEAVE', playerId: currentUserId });
     }
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('poker_room_pin');
+      localStorage.removeItem('poker_user_id');
+    }
     setCurrentPin(null);
     setRoomState(null);
     setCurrentUserId(null);
@@ -272,6 +301,80 @@ export default function PokerGamePage() {
       ) : (
         /* SCENARIO B: ACTIVE POKER TABLE */
         <>
+          {/* Host Instant Approval Banner */}
+          {isHost && roomState.pendingRequests.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 60,
+                left: 12,
+                right: 12,
+                background: 'rgba(139, 92, 246, 0.95)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: 14,
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                zIndex: 30,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                animation: 'slideUp 0.3s ease',
+              }}
+            >
+              <div style={{ fontSize: '0.82rem', color: 'white', fontWeight: 600 }}>
+                🔔 <strong>{roomState.pendingRequests[0].userName}</strong> ขอเข้าโต๊ะ ({roomState.pendingRequests[0].requestedChips} ชิป)
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  style={{ width: 30, height: 30, background: '#10b981', color: 'white' }}
+                  onClick={() =>
+                    handleApproveRequest(
+                      roomState.pendingRequests[0].id,
+                      roomState.pendingRequests[0].requestedChips
+                    )
+                  }
+                  title="อนุมัติ"
+                >
+                  <Check size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  style={{ width: 30, height: 30, background: '#ef4444', color: 'white' }}
+                  onClick={() => handleRejectRequest(roomState.pendingRequests[0].id)}
+                  title="ปฏิเสธ"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Waiting for Host Approval Overlay for Joining Player */}
+          {isWaitingForApproval && (
+            <div className="modal-overlay">
+              <div className="modal-content" style={{ textAlign: 'center', gap: 14 }}>
+                <Loader2 size={36} color="#3b82f6" className="animate-spin" style={{ margin: '0 auto' }} />
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>ส่งคำขอเข้าห้องเรียบร้อย</h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  รหัสห้อง PIN: <strong style={{ color: '#f59e0b' }}>{currentPin}</strong>
+                  <br />
+                  กำลังรอ Admin อนุมัติบนเครื่องโฮสต์...
+                </p>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={handleLeaveRoom}
+                  style={{ marginTop: 8 }}
+                >
+                  ยกเลิกและกลับสู่หน้าหลัก
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Header Bar */}
           <HeaderBar
             street={roomState.street}

@@ -8,7 +8,6 @@ import {
 } from './poker-engine';
 
 // In-memory multi-room storage on the server
-// Preserved during the lifetime of the Next.js server process
 const roomsMap = new Map<string, RoomState>();
 
 export const generateRoomPin = (): string => {
@@ -51,7 +50,7 @@ export const createServerRoom = (
   newRoom.pot = 0;
   newRoom.currentHighestBet = 0;
   newRoom.minRaise = bigBlind;
-  newRoom.players = [hostPlayer]; // Only the real host, NO bots!
+  newRoom.players = [hostPlayer]; // Real host only
 
   roomsMap.set(pin, newRoom);
   return newRoom;
@@ -61,30 +60,56 @@ export const requestJoinServerRoom = (
   pin: string,
   playerName: string,
   playerAvatar: string,
-  requestedChips: number = 1000
-): { room: RoomState | null; request: JoinRequest | null; error?: string } => {
+  requestedChips: number = 1000,
+  autoApprove: boolean = true // Auto-approve by default for smooth LAN play
+): { room: RoomState | null; request: JoinRequest | null; player?: Player; error?: string } => {
   const room = roomsMap.get(pin);
   if (!room) {
     return { room: null, request: null, error: 'ไม่พบห้องที่ระบุ PIN นี้' };
   }
 
-  // Check if player is already seated
+  // Check if player with same name is already seated
   const existingPlayer = room.players.find(p => p.name.toLowerCase() === playerName.toLowerCase());
   if (existingPlayer) {
-    return { room, request: null };
+    return { room, request: null, player: existingPlayer };
   }
 
-  const newRequest: JoinRequest = {
-    id: `req_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    userId: `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    userName: playerName,
-    userAvatar: playerAvatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-    requestedChips,
-    createdAt: Date.now(),
-  };
+  if (autoApprove) {
+    // Directly seat the player with approved status
+    const newPlayer: Player = {
+      id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: playerName,
+      avatarUrl: playerAvatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+      chips: requestedChips,
+      currentBet: 0,
+      totalRoundBet: 0,
+      status: 'active',
+      seatIndex: room.players.length,
+      isDealer: false,
+      isSmallBlind: false,
+      isBigBlind: false,
+      isTurn: false,
+      isHost: false,
+      isApproved: true,
+      hasActedThisRound: false,
+    };
 
-  room.pendingRequests.push(newRequest);
-  return { room, request: newRequest };
+    room.players.push(newPlayer);
+    return { room, request: null, player: newPlayer };
+  } else {
+    // Put into pending requests for host manual approval
+    const newRequest: JoinRequest = {
+      id: `req_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userName: playerName,
+      userAvatar: playerAvatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+      requestedChips,
+      createdAt: Date.now(),
+    };
+
+    room.pendingRequests.push(newRequest);
+    return { room, request: newRequest };
+  }
 };
 
 export const approveJoinRequest = (

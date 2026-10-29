@@ -34,7 +34,7 @@ export async function POST(
       if (result.error) {
         return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }
-      return NextResponse.json({ success: true, room: result.room, request: result.request });
+      return NextResponse.json({ success: true, room: result.room, request: result.request, player: result.player });
     }
 
     if (body.type === 'APPROVE') {

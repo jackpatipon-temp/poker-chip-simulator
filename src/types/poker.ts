@@ -62,6 +62,7 @@ export interface RoomState {
   activeVote?: Vote | null;
   winnerIds?: string[];
   deckBurnCount?: number;
+  isFirstHandStarted?: boolean;
 }
 
 export interface JoinRequest {

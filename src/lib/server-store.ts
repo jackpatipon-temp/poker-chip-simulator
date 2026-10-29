@@ -5,6 +5,10 @@ import {
   startNewHand,
   awardPotToWinners,
   restoreHistorySnapshot,
+  setRoomDealer,
+  randomizeRoomDealer,
+  swapPlayerSeats,
+  movePlayerSeat,
 } from './poker-engine';
 
 import { EventEmitter } from 'events';
@@ -212,8 +216,23 @@ export const rejectJoinRequest = (pin: string, requestId: string): RoomState | n
 export const dispatchServerRoomAction = (
   pin: string,
   actionPayload: {
-    type: 'ACTION' | 'START_HAND' | 'SHOWDOWN_WINNERS' | 'UNDO' | 'VOTE_CREATE' | 'VOTE_CAST' | 'VOTE_CLOSE' | 'TOGGLE_AFK' | 'LEAVE';
+    type:
+      | 'ACTION'
+      | 'START_HAND'
+      | 'SHOWDOWN_WINNERS'
+      | 'UNDO'
+      | 'VOTE_CREATE'
+      | 'VOTE_CAST'
+      | 'VOTE_CLOSE'
+      | 'TOGGLE_AFK'
+      | 'LEAVE'
+      | 'SET_DEALER'
+      | 'RANDOMIZE_DEALER'
+      | 'SWAP_SEATS'
+      | 'MOVE_SEAT';
     playerId?: string;
+    targetPlayerId?: string;
+    direction?: 'up' | 'down';
     action?: 'fold' | 'check' | 'call' | 'raise' | 'all-in';
     raiseAmount?: number;
     winnerIds?: string[];
@@ -236,6 +255,28 @@ export const dispatchServerRoomAction = (
 
     case 'START_HAND':
       updated = startNewHand(room);
+      break;
+
+    case 'SET_DEALER':
+      if (actionPayload.playerId) {
+        updated = setRoomDealer(room, actionPayload.playerId);
+      }
+      break;
+
+    case 'RANDOMIZE_DEALER':
+      updated = randomizeRoomDealer(room);
+      break;
+
+    case 'SWAP_SEATS':
+      if (actionPayload.playerId && actionPayload.targetPlayerId) {
+        updated = swapPlayerSeats(room, actionPayload.playerId, actionPayload.targetPlayerId);
+      }
+      break;
+
+    case 'MOVE_SEAT':
+      if (actionPayload.playerId && actionPayload.direction) {
+        updated = movePlayerSeat(room, actionPayload.playerId, actionPayload.direction);
+      }
       break;
 
     case 'SHOWDOWN_WINNERS':

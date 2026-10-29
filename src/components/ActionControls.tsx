@@ -40,7 +40,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   const callAmount = Math.min(toCall, player.chips);
   const isAllInCall = callAmount === player.chips;
 
-  const minRaiseTotal = currentHighestBet + minRaise;
+  const minRaiseTotal = currentHighestBet === 0 ? minRaise : currentHighestBet + minRaise;
   const canRaise = player.chips > toCall;
 
   const handleFold = () => {
@@ -165,7 +165,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             <>
               <FloatingTip
                 title={`การคอล (Call ${callAmount})`}
-                text={`มีผู้เล่นก่อนหน้าลงเดิมพันไว้สูงสุด ${currentHighestBet} คุณจึงต้องวางชิปเพิ่มอีก ${callAmount} เพื่อให้เท่ากันและได้สิทธิ์เล่นต่อ`}
+                text={`มียอดเดิมพันสูงสุดในตานี้อยู่ที่ ${currentHighestBet} คุณต้องวางชิปเพิ่มอีก ${callAmount} เพื่อให้เท่ากันและได้สิทธิ์เล่นต่อ`}
               />
               <button
                 type="button"
@@ -182,11 +182,11 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
           )}
         </div>
 
-        {/* RAISE BUTTON */}
+        {/* RAISE BUTTON (Always Raise with minimum starting at currentHighestBet) */}
         <div className="action-btn-wrapper">
           <FloatingTip
             title="การเกทับ (Raise)"
-            text={`เพิ่มเงินเดิมพันขั้นต่ำเป็น ${minRaiseTotal} (ต้องเพิ่มขึ้นอย่างน้อยเท่ากับการ Raise ครั้งก่อนหน้า +${minRaise} หรือ Big Blind)`}
+            text={`มียอดเดิมพันสูงสุดอยู่ที่ ${currentHighestBet} | กฎ Poker: การ Raise ต้องเพิ่มขึ้นอย่างน้อยเท่ากับการลงเดิมพันครั้งก่อนหน้า (+${minRaise}) รวมเป็นอย่างน้อย ${minRaiseTotal} ชิป (ไม่สามารถใส่ยอดต่ำกว่าเงินเดิมพันปัจจุบันได้)`}
           />
           <button
             type="button"
@@ -194,9 +194,9 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             onClick={handleRaiseClick}
             disabled={!isMyTurn || player.status !== 'active' || !canRaise}
           >
-            <span>{currentHighestBet === 0 ? 'Bet' : 'Raise'}</span>
+            <span>Raise</span>
             <span className="btn-sub-text">
-              {currentHighestBet === 0 ? `ขั้นต่ำ ${minRaise}` : `+${minRaise}`}
+              {currentHighestBet === 0 ? `ขั้นต่ำ ${minRaise}` : `≥ ${minRaiseTotal}`}
             </span>
           </button>
         </div>

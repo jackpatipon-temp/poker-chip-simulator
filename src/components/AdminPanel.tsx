@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { X, Undo2, Check, UserPlus, Vote as VoteIcon, Users, Sliders } from 'lucide-react';
+import { X, Undo2, Check, UserPlus, Vote as VoteIcon, Users, Sliders, ArrowUp, ArrowDown, Dices, Coffee } from 'lucide-react';
 import { RoomState, JoinRequest } from '@/types/poker';
 import { sound, triggerHaptic } from '@/lib/sound';
 
@@ -16,6 +16,11 @@ interface AdminPanelProps {
   onCreateVote: (title: string, options: string[]) => void;
   onToggleHostPlaying: (isPlaying: boolean) => void;
   onUpdateBlinds: (sb: number, bb: number) => void;
+  onSetDealer?: (playerId: string) => void;
+  onRandomizeDealer?: () => void;
+  onMoveSeat?: (playerId: string, direction: 'up' | 'down') => void;
+  onToggleAfk?: (playerId: string) => void;
+  initialTab?: 'seating' | 'requests' | 'vote' | 'game';
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -28,12 +33,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onCreateVote,
   onToggleHostPlaying,
   onUpdateBlinds,
+  onSetDealer,
+  onRandomizeDealer,
+  onMoveSeat,
+  onToggleAfk,
+  initialTab = 'seating',
 }) => {
   const [chipInputs, setChipInputs] = useState<Record<string, number>>({});
   const [voteTitle, setVoteTitle] = useState('');
   const [sbInput, setSbInput] = useState(state.smallBlind);
   const [bbInput, setBbInput] = useState(state.bigBlind);
-  const [activeTab, setActiveTab] = useState<'requests' | 'vote' | 'game'>('requests');
+  const [activeTab, setActiveTab] = useState<'seating' | 'requests' | 'vote' | 'game'>(initialTab);
 
   if (!isOpen) return null;
 
@@ -60,7 +70,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#a78bfa' }}>
             <Users size={22} />
-            <h2 className="modal-title" style={{ fontSize: '1.2rem' }}>แผงควบคุมโฮสต์ (Admin)</h2>
+            <h2 className="modal-title" style={{ fontSize: '1.2rem' }}>แผงจัดการห้อง (Room Setup)</h2>
           </div>
           <button type="button" className="modal-close-btn" onClick={onClose}>
             <X size={20} />
@@ -68,15 +78,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, background: 'rgba(0,0,0,0.3)', padding: 4, borderRadius: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, background: 'rgba(0,0,0,0.3)', padding: 4, borderRadius: 12 }}>
           <button
             type="button"
             className="secondary-btn"
             style={{
-              padding: '6px 8px',
-              fontSize: '0.78rem',
-              background: activeTab === 'requests' ? 'rgba(139, 92, 246, 0.3)' : 'transparent',
+              padding: '6px 4px',
+              fontSize: '0.74rem',
+              background: activeTab === 'seating' ? 'rgba(139, 92, 246, 0.35)' : 'transparent',
+              borderColor: activeTab === 'seating' ? '#a78bfa' : 'transparent',
+              fontWeight: activeTab === 'seating' ? 700 : 500,
+            }}
+            onClick={() => setActiveTab('seating')}
+          >
+            ที่นั่ง & Dealer
+          </button>
+          <button
+            type="button"
+            className="secondary-btn"
+            style={{
+              padding: '6px 4px',
+              fontSize: '0.74rem',
+              background: activeTab === 'requests' ? 'rgba(139, 92, 246, 0.35)' : 'transparent',
               borderColor: activeTab === 'requests' ? '#a78bfa' : 'transparent',
+              fontWeight: activeTab === 'requests' ? 700 : 500,
             }}
             onClick={() => setActiveTab('requests')}
           >
@@ -86,10 +111,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             type="button"
             className="secondary-btn"
             style={{
-              padding: '6px 8px',
-              fontSize: '0.78rem',
-              background: activeTab === 'vote' ? 'rgba(139, 92, 246, 0.3)' : 'transparent',
+              padding: '6px 4px',
+              fontSize: '0.74rem',
+              background: activeTab === 'vote' ? 'rgba(139, 92, 246, 0.35)' : 'transparent',
               borderColor: activeTab === 'vote' ? '#a78bfa' : 'transparent',
+              fontWeight: activeTab === 'vote' ? 700 : 500,
             }}
             onClick={() => setActiveTab('vote')}
           >
@@ -99,16 +125,245 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             type="button"
             className="secondary-btn"
             style={{
-              padding: '6px 8px',
-              fontSize: '0.78rem',
-              background: activeTab === 'game' ? 'rgba(139, 92, 246, 0.3)' : 'transparent',
+              padding: '6px 4px',
+              fontSize: '0.74rem',
+              background: activeTab === 'game' ? 'rgba(139, 92, 246, 0.35)' : 'transparent',
               borderColor: activeTab === 'game' ? '#a78bfa' : 'transparent',
+              fontWeight: activeTab === 'game' ? 700 : 500,
             }}
             onClick={() => setActiveTab('game')}
           >
             ตั้งค่าโต๊ะ
           </button>
         </div>
+
+        {/* TAB 0: SEATING & DEALER MANAGEMENT */}
+        {activeTab === 'seating' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Informative Poker Rules Card */}
+            <div
+              style={{
+                background: 'rgba(59, 130, 246, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: 12,
+                padding: '10px 14px',
+                fontSize: '0.76rem',
+                color: '#bfdbfe',
+                lineHeight: 1.5,
+              }}
+            >
+              <div style={{ fontWeight: 700, color: '#93c5fd', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>🎯 กติกาการนั่งโต๊ะ & การวน Dealer</span>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <li>ก่อนเริ่มเกม สามารถเลือกนั่งตรงไหนก็ได้ หรือกดสลับเก้าอี้/จัดลำดับรอบโต๊ะได้อิสระ</li>
+                <li>เมื่อเริ่มเล่นแล้ว ลำดับที่นั่งจะคงที่ และปุ่ม Dealer (D) พร้อม Blinds (SB, BB) จะ <strong>วนซ้ายตามเข็มนาฬิกา</strong> เสมอ</li>
+                <li>หากผู้เล่นลุกไปเข้าห้องน้ำ/พักเบรก ให้กด <strong>"พักเบรก (Sit Out)"</strong> ที่นั่งจะถูกจองไว้เดิม และจะข้ามตาให้อัตโนมัติ</li>
+              </ul>
+            </div>
+
+            {/* Quick Actions Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                ผู้เล่นในโต๊ะ ({state.players.length} คน):
+              </span>
+              {onRandomizeDealer && (
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  style={{
+                    fontSize: '0.74rem',
+                    padding: '4px 10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    color: '#f59e0b',
+                    borderColor: 'rgba(245, 158, 11, 0.4)',
+                  }}
+                  onClick={() => {
+                    sound.playChip();
+                    triggerHaptic(20);
+                    onRandomizeDealer();
+                  }}
+                  title="สุ่มเลือกผู้เล่น 1 คนเป็น Dealer คนแรกของเกม"
+                >
+                  <Dices size={14} />
+                  <span>สุ่มเลือก Dealer</span>
+                </button>
+              )}
+            </div>
+
+            {/* Players Seating List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {state.players.map((p, idx) => {
+                const isDealer = p.isDealer || idx === state.dealerIndex;
+                const isAfk = p.status === 'sitting-out';
+
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      background: isDealer ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255, 255, 255, 0.04)',
+                      border: isDealer ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-subtle)',
+                      borderRadius: 12,
+                      padding: '8px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                    }}
+                  >
+                    {/* Player Info */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          color: '#9ca3af',
+                          flexShrink: 0,
+                        }}
+                      >
+                        #{idx + 1}
+                      </div>
+                      <Image
+                        src={p.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
+                        alt={p.name}
+                        width={30}
+                        height={30}
+                        style={{ borderRadius: '50%', flexShrink: 0 }}
+                        unoptimized
+                      />
+                      <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {p.name}
+                          </span>
+                          {p.isHost && (
+                            <span style={{ fontSize: '0.65rem', background: 'rgba(139, 92, 246, 0.3)', color: '#c4b5fd', padding: '1px 5px', borderRadius: 4 }}>
+                              Host
+                            </span>
+                          )}
+                          {isAfk && (
+                            <span style={{ fontSize: '0.65rem', background: 'rgba(239, 68, 68, 0.25)', color: '#fca5a5', padding: '1px 5px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 3 }}>
+                              <Coffee size={10} />
+                              พักเบรก
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                          🪙 {p.chips.toLocaleString()} ชิป
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions: Dealer Button + Move Seat + Sit Out */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      {/* Set Dealer Button */}
+                      {isDealer ? (
+                        <div
+                          style={{
+                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                            color: '#000',
+                            fontWeight: 900,
+                            fontSize: '0.72rem',
+                            padding: '4px 8px',
+                            borderRadius: 6,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            boxShadow: '0 2px 6px rgba(245, 158, 11, 0.4)',
+                          }}
+                        >
+                          <span>D</span>
+                          <span>Dealer</span>
+                        </div>
+                      ) : (
+                        onSetDealer && (
+                          <button
+                            type="button"
+                            className="secondary-btn"
+                            style={{
+                              fontSize: '0.7rem',
+                              padding: '4px 8px',
+                              color: '#d1d5db',
+                            }}
+                            onClick={() => {
+                              sound.playChip();
+                              triggerHaptic(20);
+                              onSetDealer(p.id);
+                            }}
+                            title="ตั้งผู้เล่นคนนี้เป็น Dealer"
+                          >
+                            ตั้งเป็น D
+                          </button>
+                        )
+                      )}
+
+                      {/* Move Seat Up / Down */}
+                      {onMoveSeat && state.players.length > 1 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            style={{ width: 22, height: 20, padding: 0 }}
+                            onClick={() => {
+                              sound.playChip();
+                              onMoveSeat(p.id, 'up');
+                            }}
+                            title="เลื่อนตำแหน่งที่นั่งขึ้น (ตามเข็มนาฬิกา)"
+                          >
+                            <ArrowUp size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            style={{ width: 22, height: 20, padding: 0 }}
+                            onClick={() => {
+                              sound.playChip();
+                              onMoveSeat(p.id, 'down');
+                            }}
+                            title="เลื่อนตำแหน่งที่นั่งลง"
+                          >
+                            <ArrowDown size={12} />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Toggle AFK / Sit Out for player */}
+                      {onToggleAfk && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderColor: isAfk ? '#f87171' : undefined,
+                            color: isAfk ? '#f87171' : '#9ca3af',
+                            background: isAfk ? 'rgba(239, 68, 68, 0.15)' : undefined,
+                          }}
+                          onClick={() => {
+                            sound.playChip();
+                            onToggleAfk(p.id);
+                          }}
+                          title={isAfk ? 'ปลดสถานะพักเบรก (กลับเข้าโต๊ะ)' : 'ตั้งสถานะพักเบรก/เข้าห้องน้ำ'}
+                        >
+                          <Coffee size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* TAB 1: PENDING REQUESTS */}
         {activeTab === 'requests' && (

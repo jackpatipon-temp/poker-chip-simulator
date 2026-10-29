@@ -75,11 +75,29 @@ export const RaiseModal: React.FC<RaiseModalProps> = ({
         {/* Header */}
         <div className="modal-header">
           <span className="modal-title">
-            {currentHighestBet === 0 ? 'Place Bet' : 'Raise'}
+            {currentHighestBet === 0 ? 'Raise (เปิดเดิมพัน)' : 'Raise (เกทับ)'}
           </span>
           <button type="button" className="modal-close-btn" onClick={onClose}>
             <X size={20} />
           </button>
+        </div>
+
+        {/* Informative Poker Tip */}
+        <div
+          style={{
+            background: 'rgba(59, 130, 246, 0.12)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: 10,
+            padding: '8px 12px',
+            fontSize: '0.74rem',
+            color: '#bfdbfe',
+            lineHeight: 1.4,
+          }}
+        >
+          💡 <strong>กฎการ Raise</strong>: ค่าเริ่มต้นตั้งตามยอดสูงสุดของตานี้{' '}
+          <strong style={{ color: '#fef08a' }}>{currentHighestBet}</strong> + ขั้นต่ำ{' '}
+          <strong style={{ color: '#fef08a' }}>{minRaise}</strong> รวมเป็นอย่างน้อย{' '}
+          <strong style={{ color: '#6ee7b7' }}>{minPossible}</strong> (ไม่สามารถใส่ยอดต่ำกว่าเงินเดิมพันปัจจุบันได้)
         </div>
 
         {/* Big Number Display */}
@@ -110,7 +128,7 @@ export const RaiseModal: React.FC<RaiseModalProps> = ({
             type="range"
             min={minPossible}
             max={maxPossible}
-            step={bigBlind / 2}
+            step={Math.max(1, Math.floor(bigBlind / 2))}
             value={raiseAmount}
             onChange={(e) => {
               triggerHaptic(10);
@@ -144,7 +162,7 @@ export const RaiseModal: React.FC<RaiseModalProps> = ({
             type="button"
             className="secondary-btn"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => handleStep(-bigBlind)}
+            onClick={() => handleStep(-Math.max(minRaise, bigBlind))}
             disabled={raiseAmount <= minPossible}
           >
             <Minus size={18} />
@@ -153,7 +171,7 @@ export const RaiseModal: React.FC<RaiseModalProps> = ({
             type="button"
             className="secondary-btn"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => handleStep(bigBlind)}
+            onClick={() => handleStep(Math.max(minRaise, bigBlind))}
             disabled={raiseAmount >= maxPossible}
           >
             <Plus size={18} />
@@ -179,32 +197,63 @@ export const RaiseModal: React.FC<RaiseModalProps> = ({
           </button>
         </div>
 
-        {/* BB / Pot Preset Buttons */}
+        {/* Adaptive Preset Buttons */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-          <button
-            type="button"
-            className="secondary-btn"
-            style={{ fontSize: '0.8rem', padding: '8px 4px' }}
-            onClick={() => handlePreset(bigBlind * 2)}
-          >
-            2 BB
-          </button>
-          <button
-            type="button"
-            className="secondary-btn"
-            style={{ fontSize: '0.8rem', padding: '8px 4px' }}
-            onClick={() => handlePreset(bigBlind * 2.5)}
-          >
-            2.5 BB
-          </button>
-          <button
-            type="button"
-            className="secondary-btn"
-            style={{ fontSize: '0.8rem', padding: '8px 4px' }}
-            onClick={() => handlePreset(currentHighestBet + pot * 0.75)}
-          >
-            3/4 Pot
-          </button>
+          {currentHighestBet === 0 ? (
+            <>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ fontSize: '0.8rem', padding: '8px 4px' }}
+                onClick={() => handlePreset(bigBlind * 2)}
+              >
+                2 BB
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ fontSize: '0.8rem', padding: '8px 4px' }}
+                onClick={() => handlePreset(bigBlind * 3)}
+              >
+                3 BB
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ fontSize: '0.8rem', padding: '8px 4px' }}
+                onClick={() => handlePreset(pot || bigBlind * 4)}
+              >
+                Pot
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ fontSize: '0.8rem', padding: '8px 4px' }}
+                onClick={() => handlePreset(currentHighestBet * 2)}
+              >
+                2x Bet
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ fontSize: '0.8rem', padding: '8px 4px' }}
+                onClick={() => handlePreset(currentHighestBet * 3)}
+              >
+                3x Bet
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ fontSize: '0.8rem', padding: '8px 4px' }}
+                onClick={() => handlePreset(currentHighestBet + pot)}
+              >
+                + Pot
+              </button>
+            </>
+          )}
         </div>
 
         {/* Breakdown Text */}
@@ -231,7 +280,7 @@ export const RaiseModal: React.FC<RaiseModalProps> = ({
           }}
           onClick={handleConfirm}
         >
-          {isAllIn ? 'All-In' : currentHighestBet === 0 ? 'Bet' : 'Raise'} {raiseAmount}
+          {isAllIn ? 'All-In' : 'Raise'} {raiseAmount}
         </button>
       </div>
     </div>

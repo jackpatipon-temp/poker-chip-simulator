@@ -14,6 +14,7 @@ interface PokerTableProps {
   roomPin?: string;
   isHost?: boolean;
   onStartHand?: () => void;
+  onOpenSeating?: () => void;
 }
 
 export const PokerTable: React.FC<PokerTableProps> = ({
@@ -24,6 +25,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   roomPin,
   isHost,
   onStartHand,
+  onOpenSeating,
 }) => {
   const [copied, setCopied] = React.useState(false);
 
@@ -115,6 +117,33 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 <Users size={13} />
                 <span>ในโต๊ะมี {players.length} คน</span>
               </div>
+
+              {/* Seating and Dealer Setup Trigger */}
+              {onOpenSeating && (
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  style={{
+                    padding: '5px 12px',
+                    fontSize: '0.74rem',
+                    color: '#f59e0b',
+                    borderColor: 'rgba(245, 158, 11, 0.4)',
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    sound.playChip();
+                    triggerHaptic(20);
+                    onOpenSeating();
+                  }}
+                  title="จัดลำดับที่นั่ง และเลือก Dealer คนแรกของเกม"
+                >
+                  <span>🎯 จัดที่นั่ง & Dealer</span>
+                </button>
+              )}
 
               {isHost && players.length >= 2 && onStartHand && (
                 <button

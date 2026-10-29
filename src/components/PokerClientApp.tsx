@@ -327,6 +327,31 @@ export function PokerClientApp({
     [currentUserId, sendRoomAction]
   );
 
+  const handleSetDealer = useCallback(
+    (playerId: string) => {
+      sendRoomAction({ type: 'SET_DEALER', playerId });
+    },
+    [sendRoomAction]
+  );
+
+  const handleRandomizeDealer = useCallback(() => {
+    sendRoomAction({ type: 'RANDOMIZE_DEALER' });
+  }, [sendRoomAction]);
+
+  const handleMoveSeat = useCallback(
+    (playerId: string, direction: 'up' | 'down') => {
+      sendRoomAction({ type: 'MOVE_SEAT', playerId, direction });
+    },
+    [sendRoomAction]
+  );
+
+  const handleToggleAfk = useCallback(
+    (playerId: string) => {
+      sendRoomAction({ type: 'TOGGLE_AFK', playerId });
+    },
+    [sendRoomAction]
+  );
+
   const handleCastVote = useCallback(
     (optionId: string) => {
       sendRoomAction({
@@ -543,6 +568,7 @@ export function PokerClientApp({
             roomPin={currentPin}
             isHost={isHost}
             onStartHand={handleStartHand}
+            onOpenSeating={() => setIsAdminPanelOpen(true)}
           />
 
           {/* Bottom Controls */}
@@ -594,6 +620,10 @@ export function PokerClientApp({
             onCreateVote={handleCreateVote}
             onToggleHostPlaying={() => {}}
             onUpdateBlinds={() => {}}
+            onSetDealer={handleSetDealer}
+            onRandomizeDealer={handleRandomizeDealer}
+            onMoveSeat={handleMoveSeat}
+            onToggleAfk={handleToggleAfk}
           />
 
           {/* Interactive Vote Modal */}

@@ -26,6 +26,7 @@
 desktop.ini
 Thumbs.db
 *.mp4
+client_debug.log
 
 # debug
 npm-debug.log*

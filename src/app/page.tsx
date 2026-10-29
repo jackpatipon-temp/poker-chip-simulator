@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { RoomState, Player } from '@/types/poker';
 import { sound, triggerHaptic } from '@/lib/sound';
 import { HeaderBar } from '@/components/HeaderBar';
@@ -15,20 +16,22 @@ import { DisclaimerModal } from '@/components/DisclaimerModal';
 import { LobbyView } from '@/components/LobbyView';
 import { Check, X, Loader2 } from 'lucide-react';
 
-export default function PokerGamePage() {
+function PokerGameContent() {
+  const searchParams = useSearchParams();
+  const qPin = searchParams ? searchParams.get('pin') : null;
+  const qUser = searchParams ? searchParams.get('userId') : null;
+
   const [currentPin, setCurrentPin] = useState<string | null>(() => {
+    if (qPin) return qPin;
     if (typeof window !== 'undefined') {
-      const qPin = new URLSearchParams(window.location.search).get('pin');
-      if (qPin) return qPin;
       return localStorage.getItem('poker_room_pin');
     }
     return null;
   });
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
+    if (qUser) return qUser;
     if (typeof window !== 'undefined') {
-      const qUser = new URLSearchParams(window.location.search).get('userId');
-      if (qUser) return qUser;
       return localStorage.getItem('poker_user_id');
     }
     return null;
@@ -543,5 +546,22 @@ export default function PokerGamePage() {
         onAccept={() => setIsDisclaimerOpen(false)}
       />
     </div>
+  );
+}
+
+export default function PokerGamePage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          className="app-container"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}
+        >
+          <Loader2 size={40} color="#10b981" className="animate-spin" />
+        </div>
+      }
+    >
+      <PokerGameContent />
+    </Suspense>
   );
 }

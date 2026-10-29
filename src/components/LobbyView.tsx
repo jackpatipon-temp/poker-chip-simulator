@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PlusCircle, Users, Wifi, ShieldAlert, ArrowRight, ArrowLeft, Sparkles, Loader2, KeyRound } from 'lucide-react';
+import { PlusCircle, Wifi, ShieldAlert, ArrowRight, Sparkles, Loader2, KeyRound } from 'lucide-react';
 import { sound, triggerHaptic } from '@/lib/sound';
 
 interface LobbyViewProps {
@@ -17,8 +17,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   onJoinRoom,
   onOpenDisclaimer,
 }) => {
-  // Screen state: 'home' | 'join' | 'create'
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'join' | 'create'>('home');
+  // Active Tab: 'join' (default for players/phone) | 'create' (for host)
+  const [activeTab, setActiveTab] = useState<'join' | 'create'>('join');
+
+  // Join Room fields (Immediately visible on page load)
+  const [joinPin, setJoinPin] = useState('');
+  const [joinPlayerName, setJoinPlayerName] = useState('');
+  const [joinChips, setJoinChips] = useState(1000);
 
   // Create Room fields
   const [hostName, setHostName] = useState('Patipon');
@@ -27,16 +32,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const [bigBlind, setBigBlind] = useState(10);
   const [customPin, setCustomPin] = useState('');
 
-  // Join Room fields
-  const [joinPin, setJoinPin] = useState('');
-  const [joinPlayerName, setJoinPlayerName] = useState('');
-  const [joinChips, setJoinChips] = useState(1000);
-
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const navigateTo = (screen: 'home' | 'join' | 'create') => {
-    setCurrentScreen(screen);
+  const handleTabChange = (tab: 'join' | 'create') => {
+    setActiveTab(tab);
     setErrorMsg('');
     try {
       sound.playChip();
@@ -46,29 +46,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     }
   };
 
-  const handleCreate = async () => {
-    if (!hostName.trim()) {
-      setErrorMsg('กรุณากรอกชื่อผู้สร้างห้อง');
-      return;
-    }
-    setIsLoading(true);
-    setErrorMsg('');
-    try {
-      sound.playChip();
-      triggerHaptic(25);
-    } catch {
-      // ignore
-    }
-
-    try {
-      await onCreateRoom(hostName.trim(), startingChips, smallBlind, bigBlind, customPin.trim() || undefined);
-    } catch (err: unknown) {
-      setErrorMsg((err as Error).message || 'เกิดข้อผิดพลาดในการสร้างห้อง');
-      setIsLoading(false);
-    }
-  };
-
-  const handleJoin = async () => {
+  const handleJoin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!joinPin.trim()) {
       setErrorMsg('กรุณากรอกรหัสห้อง (PIN)');
       return;
@@ -95,6 +74,29 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     }
   };
 
+  const handleCreate = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!hostName.trim()) {
+      setErrorMsg('กรุณากรอกชื่อผู้สร้างห้อง');
+      return;
+    }
+    setIsLoading(true);
+    setErrorMsg('');
+    try {
+      sound.playChip();
+      triggerHaptic(25);
+    } catch {
+      // ignore
+    }
+
+    try {
+      await onCreateRoom(hostName.trim(), startingChips, smallBlind, bigBlind, customPin.trim() || undefined);
+    } catch (err: unknown) {
+      setErrorMsg((err as Error).message || 'เกิดข้อผิดพลาดในการสร้างห้อง');
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -104,7 +106,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         padding: '24px 16px',
         width: '100%',
         minHeight: '100%',
-        gap: 16,
+        gap: 14,
         position: 'relative',
         zIndex: 10,
       }}
@@ -113,8 +115,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
       <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
         <div
           style={{
-            width: 58,
-            height: 58,
+            width: 56,
+            height: 56,
             borderRadius: 18,
             background: 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)',
             border: '1.5px solid rgba(59, 130, 246, 0.4)',
@@ -135,11 +137,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         </p>
       </div>
 
-      {/* LAN Wi-Fi Help Box */}
+      {/* LAN Wi-Fi Connection Box */}
       <div
         style={{
           width: '100%',
-          maxWidth: 390,
+          maxWidth: 400,
           background: 'rgba(59, 130, 246, 0.12)',
           border: '1px solid rgba(59, 130, 246, 0.35)',
           borderRadius: 14,
@@ -170,180 +172,124 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         </div>
       </div>
 
-      {/* Main Container Card */}
+      {/* Main Card with Tabs */}
       <div
         style={{
           width: '100%',
-          maxWidth: 390,
+          maxWidth: 400,
           background: 'var(--bg-card)',
           backdropFilter: 'var(--glass-blur)',
           border: '1px solid var(--border-subtle)',
           borderRadius: 20,
-          padding: 20,
+          padding: '18px 16px',
           boxShadow: 'var(--shadow-lg)',
         }}
       >
+        {/* TAB SELECTOR: Join Room (Default) vs Create Room */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 6,
+            background: 'rgba(0,0,0,0.45)',
+            padding: 4,
+            borderRadius: 14,
+            marginBottom: 16,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => handleTabChange('join')}
+            style={{
+              padding: '12px 6px',
+              borderRadius: 10,
+              border: 'none',
+              background: activeTab === 'join' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
+              color: activeTab === 'join' ? '#ffffff' : 'var(--text-muted)',
+              fontWeight: 800,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              boxShadow: activeTab === 'join' ? '0 4px 14px rgba(16, 185, 129, 0.4)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <KeyRound size={16} />
+            <span>เข้าห้องด้วย PIN</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange('create')}
+            style={{
+              padding: '12px 6px',
+              borderRadius: 10,
+              border: 'none',
+              background: activeTab === 'create' ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : 'transparent',
+              color: activeTab === 'create' ? '#ffffff' : 'var(--text-muted)',
+              fontWeight: 800,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              boxShadow: activeTab === 'create' ? '0 4px 14px rgba(37, 99, 235, 0.4)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <PlusCircle size={16} />
+            <span>สร้างห้อง (Admin)</span>
+          </button>
+        </div>
+
+        {/* Error Notification */}
         {errorMsg && (
           <div
             style={{
               background: 'rgba(239, 68, 68, 0.15)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: 8,
+              borderRadius: 10,
               padding: '8px 12px',
               fontSize: '0.8rem',
               color: '#fca5a5',
               marginBottom: 14,
               textAlign: 'center',
+              fontWeight: 600,
             }}
           >
             {errorMsg}
           </div>
         )}
 
-        {/* =======================================================
-            SCREEN 1: HOME (2 Big Choice Buttons)
-            ======================================================= */}
-        {currentScreen === 'home' && (
+        {/* =========================================================
+            TAB 1: JOIN WITH PIN (ACTIVE BY DEFAULT FOR MOBILE PLAYERS)
+            ========================================================= */}
+        {activeTab === 'join' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ textAlign: 'center', marginBottom: 4 }}>
-              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'white' }}>เลือกการเข้าใช้งาน</div>
-              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>คุณต้องการเข้าเล่นเป็นใคร?</div>
-            </div>
-
-            {/* BIG BUTTON 1: JOIN WITH PIN (Primary for players/girlfriend) */}
-            <button
-              type="button"
-              onClick={() => navigateTo('join')}
-              style={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                border: '1px solid rgba(52, 211, 153, 0.4)',
-                borderRadius: 16,
-                padding: '18px 16px',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                touchAction: 'manipulation',
-                boxShadow: '0 6px 18px rgba(16, 185, 129, 0.35)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 12,
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <KeyRound size={22} color="white" />
-                </div>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '1rem', fontWeight: 800 }}>เข้าห้องด้วย PIN</div>
-                  <div style={{ fontSize: '0.74rem', color: 'rgba(255, 255, 255, 0.85)' }}>
-                    สำหรับผู้เล่น / แฟน (กดเพื่อใส่รหัสห้อง)
-                  </div>
-                </div>
-              </div>
-              <ArrowRight size={20} color="white" />
-            </button>
-
-            {/* BIG BUTTON 2: CREATE ROOM (For Host) */}
-            <button
-              type="button"
-              onClick={() => navigateTo('create')}
-              style={{
-                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                border: '1px solid rgba(96, 165, 250, 0.4)',
-                borderRadius: 16,
-                padding: '18px 16px',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                touchAction: 'manipulation',
-                boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 12,
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <PlusCircle size={22} color="white" />
-                </div>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '1rem', fontWeight: 800 }}>สร้างห้องใหม่ (Admin)</div>
-                  <div style={{ fontSize: '0.74rem', color: 'rgba(255, 255, 255, 0.85)' }}>
-                    สำหรับเจ้าของโต๊ะ (สร้าง PIN ให้คนอื่นเข้า)
-                  </div>
-                </div>
-              </div>
-              <ArrowRight size={20} color="white" />
-            </button>
-          </div>
-        )}
-
-        {/* =======================================================
-            SCREEN 2: JOIN WITH PIN (Direct screen to enter PIN)
-            ======================================================= */}
-        {currentScreen === 'join' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {/* Header with Back Button */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-              <button
-                type="button"
-                onClick={() => navigateTo('home')}
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 10,
-                  padding: '6px 12px',
-                  color: 'var(--text-muted)',
-                  fontSize: '0.8rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  cursor: 'pointer',
-                }}
-              >
-                <ArrowLeft size={15} />
-                <span>ย้อนกลับ</span>
-              </button>
-              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#34d399' }}>ใส่ PIN เพื่อเข้าห้อง</div>
-            </div>
-
             <div>
-              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                รหัสห้อง (Room PIN)
+              <label style={{ fontSize: '0.8rem', color: '#34d399', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span>🔑 รหัสห้อง (Room PIN)</span>
               </label>
               <input
                 type="text"
                 value={joinPin}
                 onChange={(e) => setJoinPin(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleJoin();
+                }}
                 placeholder="เช่น 5931"
                 maxLength={8}
                 autoFocus
                 style={{
                   width: '100%',
-                  background: 'rgba(0,0,0,0.5)',
-                  border: '1.5px solid #f59e0b',
+                  background: 'rgba(0,0,0,0.55)',
+                  border: '2px solid #f59e0b',
                   borderRadius: 12,
-                  padding: '14px 10px',
+                  padding: '12px 10px',
                   color: '#f59e0b',
                   fontSize: 22,
                   fontFamily: 'var(--font-mono)',
@@ -363,6 +309,9 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 type="text"
                 value={joinPlayerName}
                 onChange={(e) => setJoinPlayerName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleJoin();
+                }}
                 placeholder="เช่น แฟน / ผู้เล่น 2"
                 style={{
                   width: '100%',
@@ -406,67 +355,49 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               type="button"
               className="primary-btn"
               disabled={isLoading || !joinPin.trim() || !joinPlayerName.trim()}
-              onClick={handleJoin}
+              onClick={() => handleJoin()}
               style={{
-                marginTop: 6,
+                marginTop: 4,
                 minHeight: 52,
-                fontSize: 16,
+                fontSize: '1rem',
+                fontWeight: 800,
                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                 boxShadow: '0 6px 20px rgba(16, 185, 129, 0.45)',
+                border: '1px solid rgba(52, 211, 153, 0.4)',
+                cursor: 'pointer',
               }}
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
+                  <Loader2 size={20} className="animate-spin" />
                   <span>กำลังเชื่อมต่อห้อง...</span>
                 </>
               ) : (
                 <>
-                  <ArrowRight size={18} />
-                  <span>เข้าห้องทันที</span>
+                  <ArrowRight size={20} />
+                  <span>เข้าห้องทันที (Join Room)</span>
                 </>
               )}
             </button>
           </div>
         )}
 
-        {/* =======================================================
-            SCREEN 3: CREATE ROOM (Host / Admin Configuration)
-            ======================================================= */}
-        {currentScreen === 'create' && (
+        {/* =========================================================
+            TAB 2: CREATE ROOM (FOR HOST / ADMIN)
+            ========================================================= */}
+        {activeTab === 'create' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {/* Header with Back Button */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-              <button
-                type="button"
-                onClick={() => navigateTo('home')}
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 10,
-                  padding: '6px 12px',
-                  color: 'var(--text-muted)',
-                  fontSize: '0.8rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  cursor: 'pointer',
-                }}
-              >
-                <ArrowLeft size={15} />
-                <span>ย้อนกลับ</span>
-              </button>
-              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#60a5fa' }}>สร้างห้องใหม่ (Admin)</div>
-            </div>
-
             <div>
-              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <label style={{ fontSize: '0.78rem', color: '#60a5fa', fontWeight: 700 }}>
                 ชื่อผู้สร้างห้อง (Admin / Host)
               </label>
               <input
                 type="text"
                 value={hostName}
                 onChange={(e) => setHostName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate();
+                }}
                 placeholder="เช่น Patipon"
                 style={{
                   width: '100%',
@@ -578,24 +509,27 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               type="button"
               className="primary-btn"
               disabled={isLoading || !hostName.trim()}
-              onClick={handleCreate}
+              onClick={() => handleCreate()}
               style={{
-                marginTop: 6,
+                marginTop: 4,
                 minHeight: 52,
-                fontSize: 16,
+                fontSize: '1rem',
+                fontWeight: 800,
                 background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
                 boxShadow: '0 6px 20px rgba(37, 99, 235, 0.45)',
+                border: '1px solid rgba(96, 165, 250, 0.4)',
+                cursor: 'pointer',
               }}
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
+                  <Loader2 size={20} className="animate-spin" />
                   <span>กำลังสร้างห้อง...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles size={18} />
-                  <span>สร้างห้องและเข้าโต๊ะ</span>
+                  <Sparkles size={20} />
+                  <span>สร้างห้องและเข้าโต๊ะ (Create Room)</span>
                 </>
               )}
             </button>

@@ -44,8 +44,25 @@ export default function PokerGamePage() {
       const savedPin = localStorage.getItem('poker_room_pin');
       const savedUserId = localStorage.getItem('poker_user_id');
       if (savedPin && savedUserId) {
-        setCurrentPin(savedPin);
-        setCurrentUserId(savedUserId);
+        fetch(`/api/rooms/${savedPin}`)
+          .then((res) => {
+            if (res.ok) return res.json();
+            throw new Error('Room not found');
+          })
+          .then((data) => {
+            if (data?.success && data?.room) {
+              setCurrentPin(savedPin);
+              setCurrentUserId(savedUserId);
+              setRoomState(data.room);
+            } else {
+              localStorage.removeItem('poker_room_pin');
+              localStorage.removeItem('poker_user_id');
+            }
+          })
+          .catch(() => {
+            localStorage.removeItem('poker_room_pin');
+            localStorage.removeItem('poker_user_id');
+          });
       }
     }
   }, []);

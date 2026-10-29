@@ -31,6 +31,17 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const handleTabSwitch = (tab: 'create' | 'join') => {
+    setActiveTab(tab);
+    setErrorMsg('');
+    try {
+      sound.playChip();
+      triggerHaptic(15);
+    } catch {
+      // ignore
+    }
+  };
+
   const handleCreate = async () => {
     if (!hostName.trim()) {
       setErrorMsg('กรุณากรอกชื่อผู้สร้างห้อง');
@@ -38,11 +49,15 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     }
     setIsLoading(true);
     setErrorMsg('');
-    sound.playChip();
-    triggerHaptic(30);
+    try {
+      sound.playChip();
+      triggerHaptic(25);
+    } catch {
+      // ignore
+    }
 
     try {
-      await onCreateRoom(hostName.trim(), startingChips, smallBlind, bigBlind, customPin || undefined);
+      await onCreateRoom(hostName.trim(), startingChips, smallBlind, bigBlind, customPin.trim() || undefined);
     } catch (err: unknown) {
       setErrorMsg((err as Error).message || 'เกิดข้อผิดพลาดในการสร้างห้อง');
       setIsLoading(false);
@@ -61,8 +76,12 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
     setIsLoading(true);
     setErrorMsg('');
-    sound.playChip();
-    triggerHaptic(30);
+    try {
+      sound.playChip();
+      triggerHaptic(25);
+    } catch {
+      // ignore
+    }
 
     try {
       await onJoinRoom(joinPin.trim(), joinPlayerName.trim(), joinChips);
@@ -78,19 +97,20 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px 16px',
+        padding: '24px 16px',
+        width: '100%',
         minHeight: '100%',
         gap: 16,
-        overflowY: 'auto',
+        position: 'relative',
+        zIndex: 10,
       }}
     >
       {/* Brand Hero */}
       <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
         <div
           style={{
-            width: 58,
-            height: 58,
+            width: 56,
+            height: 56,
             borderRadius: 18,
             background: 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)',
             border: '1.5px solid rgba(59, 130, 246, 0.4)',
@@ -103,10 +123,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         >
           ♠️
         </div>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f3f4f6', marginTop: 4 }}>
-          Texas Hold&apos;em Simulator
+        <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#f3f4f6', marginTop: 4 }}>
+          Poker Chip Simulator
         </h1>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: 320 }}>
+        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: 300 }}>
           จำลองชิปและเงินเดิมพันสำหรับวงปาร์ตี้ เล่นด้วยสำรับไพ่จริงนอกจอ
         </p>
       </div>
@@ -116,8 +136,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         style={{
           width: '100%',
           maxWidth: 390,
-          background: 'rgba(59, 130, 246, 0.1)',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
+          background: 'rgba(59, 130, 246, 0.12)',
+          border: '1px solid rgba(59, 130, 246, 0.35)',
           borderRadius: 14,
           padding: '10px 12px',
           display: 'flex',
@@ -155,65 +175,73 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           backdropFilter: 'var(--glass-blur)',
           border: '1px solid var(--border-subtle)',
           borderRadius: 18,
-          padding: 18,
+          padding: 16,
           boxShadow: 'var(--shadow-lg)',
         }}
       >
-        {/* Tab Buttons */}
+        {/* Large Touch-Friendly Tab Buttons */}
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gap: 6,
+            gap: 8,
             background: 'rgba(0,0,0,0.4)',
             padding: 4,
             borderRadius: 12,
-            marginBottom: 14,
+            marginBottom: 16,
           }}
         >
           <button
             type="button"
-            className="secondary-btn"
             style={{
-              padding: '8px 10px',
-              fontSize: '0.85rem',
-              background: activeTab === 'create' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
-              borderColor: activeTab === 'create' ? '#3b82f6' : 'transparent',
-              color: activeTab === 'create' ? '#93c5fd' : 'var(--text-muted)',
+              padding: '12px 10px',
+              minHeight: 46,
+              fontSize: '0.88rem',
+              fontWeight: 700,
+              background: activeTab === 'create' ? '#2563eb' : 'transparent',
+              borderColor: activeTab === 'create' ? '#60a5fa' : 'transparent',
+              color: activeTab === 'create' ? '#ffffff' : '#9ca3af',
+              borderWidth: 1,
+              borderStyle: 'solid',
+              borderRadius: 10,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
+              cursor: 'pointer',
+              touchAction: 'manipulation',
             }}
-            onClick={() => {
-              setActiveTab('create');
-              setErrorMsg('');
-            }}
+            onClick={() => handleTabSwitch('create')}
+            onTouchEnd={() => handleTabSwitch('create')}
           >
-            <PlusCircle size={15} />
+            <PlusCircle size={16} />
             <span>สร้างห้อง (Admin)</span>
           </button>
 
           <button
             type="button"
-            className="secondary-btn"
             style={{
-              padding: '8px 10px',
-              fontSize: '0.85rem',
-              background: activeTab === 'join' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
-              borderColor: activeTab === 'join' ? '#3b82f6' : 'transparent',
-              color: activeTab === 'join' ? '#93c5fd' : 'var(--text-muted)',
+              padding: '12px 10px',
+              minHeight: 46,
+              fontSize: '0.88rem',
+              fontWeight: 700,
+              background: activeTab === 'join' ? '#10b981' : 'transparent',
+              borderColor: activeTab === 'join' ? '#34d399' : 'transparent',
+              color: activeTab === 'join' ? '#ffffff' : '#9ca3af',
+              borderWidth: 1,
+              borderStyle: 'solid',
+              borderRadius: 10,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
+              cursor: 'pointer',
+              touchAction: 'manipulation',
             }}
-            onClick={() => {
-              setActiveTab('join');
-              setErrorMsg('');
-            }}
+            onClick={() => handleTabSwitch('join')}
+            onTouchEnd={() => handleTabSwitch('join')}
           >
-            <Users size={15} />
+            <Users size={16} />
             <span>เข้าด้วย PIN</span>
           </button>
         </div>
@@ -225,7 +253,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               border: '1px solid rgba(239, 68, 68, 0.3)',
               borderRadius: 8,
               padding: '8px 12px',
-              fontSize: '0.78rem',
+              fontSize: '0.8rem',
               color: '#fca5a5',
               marginBottom: 12,
               textAlign: 'center',
@@ -235,11 +263,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           </div>
         )}
 
-        {/* CREATE ROOM CONTENT (DIV instead of FORM to prevent mobile browser navigation) */}
+        {/* TAB 1: CREATE ROOM */}
         {activeTab === 'create' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <label style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                 ชื่อผู้สร้างห้อง (Admin / Host)
               </label>
               <input
@@ -252,16 +280,16 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   background: 'rgba(0,0,0,0.5)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 10,
-                  padding: 10,
+                  padding: 12,
                   color: 'white',
-                  fontSize: '0.9rem',
+                  fontSize: 16,
                 }}
               />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div>
-                <label style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>ชิปเริ่มต้น</label>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>ชิปเริ่มต้น</label>
                 <input
                   type="number"
                   value={startingChips}
@@ -273,16 +301,17 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     background: 'rgba(0,0,0,0.5)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: 10,
-                    padding: 10,
+                    padding: 12,
                     color: '#f59e0b',
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 700,
+                    fontSize: 16,
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                   กำหนด PIN (ไม่บังคับ)
                 </label>
                 <input
@@ -296,10 +325,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     background: 'rgba(0,0,0,0.5)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: 10,
-                    padding: 10,
+                    padding: 12,
                     color: '#93c5fd',
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 700,
+                    fontSize: 16,
                   }}
                 />
               </div>
@@ -307,7 +337,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div>
-                <label style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Small Blind</label>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Small Blind</label>
                 <input
                   type="number"
                   value={smallBlind}
@@ -318,14 +348,15 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     background: 'rgba(0,0,0,0.5)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: 8,
-                    padding: 8,
+                    padding: 10,
                     color: 'white',
                     fontFamily: 'var(--font-mono)',
+                    fontSize: 16,
                   }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Big Blind</label>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Big Blind</label>
                 <input
                   type="number"
                   value={bigBlind}
@@ -336,9 +367,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     background: 'rgba(0,0,0,0.5)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: 8,
-                    padding: 8,
+                    padding: 10,
                     color: 'white',
                     fontFamily: 'var(--font-mono)',
+                    fontSize: 16,
                   }}
                 />
               </div>
@@ -349,7 +381,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               className="primary-btn"
               disabled={isLoading || !hostName.trim()}
               onClick={handleCreate}
-              style={{ marginTop: 6 }}
+              style={{ marginTop: 8, minHeight: 50, fontSize: 16 }}
             >
               {isLoading ? (
                 <>
@@ -365,28 +397,28 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             </button>
           </div>
         ) : (
-          /* JOIN WITH PIN CONTENT */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          /* TAB 2: JOIN WITH PIN */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <label style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                รหัสห้อง (Room PIN)
+              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                รหัสห้อง (Room PIN 4-6 หลัก)
               </label>
               <input
                 type="text"
                 value={joinPin}
                 onChange={(e) => setJoinPin(e.target.value)}
-                placeholder="ใส่ PIN เช่น 1234"
+                placeholder="เช่น 5931"
                 maxLength={8}
                 style={{
                   width: '100%',
                   background: 'rgba(0,0,0,0.5)',
-                  border: '1px solid var(--border-subtle)',
+                  border: '1px solid rgba(245, 158, 11, 0.5)',
                   borderRadius: 10,
-                  padding: 10,
+                  padding: 12,
                   color: '#f59e0b',
-                  fontSize: '1.2rem',
+                  fontSize: 20,
                   fontFamily: 'var(--font-mono)',
-                  letterSpacing: 3,
+                  letterSpacing: 4,
                   textAlign: 'center',
                   fontWeight: 800,
                 }}
@@ -394,7 +426,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             </div>
 
             <div>
-              <label style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                 ชื่อของคุณ (Player Name)
               </label>
               <input
@@ -407,16 +439,16 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   background: 'rgba(0,0,0,0.5)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 10,
-                  padding: 10,
+                  padding: 12,
                   color: 'white',
-                  fontSize: '0.9rem',
+                  fontSize: 16,
                 }}
               />
             </div>
 
             <div>
-              <label style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                จำนวนชิปที่ต้องการ
+              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                จำนวนชิปเริ่มต้น
               </label>
               <input
                 type="number"
@@ -429,10 +461,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   background: 'rgba(0,0,0,0.5)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 10,
-                  padding: 10,
+                  padding: 12,
                   color: '#f59e0b',
                   fontFamily: 'var(--font-mono)',
                   fontWeight: 700,
+                  fontSize: 16,
                 }}
               />
             </div>
@@ -443,7 +476,9 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               disabled={isLoading || !joinPin.trim() || !joinPlayerName.trim()}
               onClick={handleJoin}
               style={{
-                marginTop: 6,
+                marginTop: 8,
+                minHeight: 50,
+                fontSize: 16,
                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                 boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
               }}
@@ -477,6 +512,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           alignItems: 'center',
           gap: 6,
           cursor: 'pointer',
+          padding: 8,
         }}
       >
         <ShieldAlert size={14} color="#ef4444" />

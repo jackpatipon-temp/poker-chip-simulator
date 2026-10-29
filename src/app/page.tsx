@@ -64,6 +64,14 @@ export default function PokerGamePage() {
           if (data.success && data.room) {
             setRoomState(data.room);
           }
+        } else if (res.status === 404) {
+          setCurrentPin(null);
+          setRoomState(null);
+          setCurrentUserId(null);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('poker_room_pin');
+            localStorage.removeItem('poker_user_id');
+          }
         }
       } catch {
         // Silently retry on next interval

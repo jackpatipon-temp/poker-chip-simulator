@@ -45,17 +45,44 @@ export default function RootLayout({
                 }
                 window.__logEvent = logEvent;
                 logEvent('HEAD_INIT', { url: location.href });
+
+                // Capture phase to catch script and network resource errors
                 window.addEventListener('error', function(e) {
-                  logEvent('ERROR', { msg: e.message, src: e.filename, line: e.lineno, col: e.colno, stack: e.error ? e.error.stack : '' });
-                });
+                  var target = e.target;
+                  if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
+                    logEvent('RESOURCE_ERROR', {
+                      tagName: target.tagName,
+                      src: target.src || target.href,
+                      type: e.type
+                    });
+                  } else {
+                    logEvent('ERROR', {
+                      msg: e.message || 'unknown',
+                      src: e.filename || '',
+                      line: e.lineno || 0,
+                      col: e.colno || 0,
+                      stack: e.error ? e.error.stack : ''
+                    });
+                  }
+                }, true);
+
                 window.addEventListener('unhandledrejection', function(e) {
                   logEvent('UNHANDLED_REJECTION', { reason: String(e.reason) });
                 });
+
                 document.addEventListener('DOMContentLoaded', function() {
                   logEvent('DOM_CONTENT_LOADED', {});
                 });
+
                 window.addEventListener('load', function() {
                   logEvent('WINDOW_LOADED', {});
+                  // Check status of all scripts after 2 seconds
+                  setTimeout(function() {
+                    var scripts = Array.from(document.querySelectorAll('script[src]')).map(function(s) {
+                      return { src: s.src.replace(location.origin, ''), async: s.async, defer: s.defer };
+                    });
+                    logEvent('SCRIPTS_INFO', { count: scripts.length, scripts: scripts });
+                  }, 2000);
                 });
               })();
             `,

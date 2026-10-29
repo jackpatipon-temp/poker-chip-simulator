@@ -7,8 +7,13 @@ import {
   restoreHistorySnapshot,
 } from './poker-engine';
 
-// In-memory multi-room storage on the server
-const roomsMap = new Map<string, RoomState>();
+// Global in-memory multi-room storage across Next.js module graphs and route handlers
+const globalForRooms = globalThis as unknown as {
+  pokerRoomsMap: Map<string, RoomState> | undefined;
+};
+
+const roomsMap = globalForRooms.pokerRoomsMap ?? new Map<string, RoomState>();
+globalForRooms.pokerRoomsMap = roomsMap;
 
 export const generateRoomPin = (): string => {
   return Math.floor(1000 + Math.random() * 9000).toString();

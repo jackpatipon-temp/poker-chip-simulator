@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PlusCircle, Users, Wifi, ShieldAlert, ArrowRight, Sparkles, Loader2 } from 'lucide-react';
+import { PlusCircle, Users, Wifi, ShieldAlert, ArrowRight, ArrowLeft, Sparkles, Loader2, KeyRound } from 'lucide-react';
 import { sound, triggerHaptic } from '@/lib/sound';
 
 interface LobbyViewProps {
@@ -17,13 +17,17 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   onJoinRoom,
   onOpenDisclaimer,
 }) => {
-  const [activeTab, setActiveTab] = useState<'create' | 'join'>('create');
+  // Screen state: 'home' | 'join' | 'create'
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'join' | 'create'>('home');
+
+  // Create Room fields
   const [hostName, setHostName] = useState('Patipon');
   const [startingChips, setStartingChips] = useState(1000);
   const [smallBlind, setSmallBlind] = useState(5);
   const [bigBlind, setBigBlind] = useState(10);
   const [customPin, setCustomPin] = useState('');
 
+  // Join Room fields
   const [joinPin, setJoinPin] = useState('');
   const [joinPlayerName, setJoinPlayerName] = useState('');
   const [joinChips, setJoinChips] = useState(1000);
@@ -31,12 +35,12 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleTabSwitch = (tab: 'create' | 'join') => {
-    setActiveTab(tab);
+  const navigateTo = (screen: 'home' | 'join' | 'create') => {
+    setCurrentScreen(screen);
     setErrorMsg('');
     try {
       sound.playChip();
-      triggerHaptic(15);
+      triggerHaptic(20);
     } catch {
       // ignore
     }
@@ -109,8 +113,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
       <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
         <div
           style={{
-            width: 56,
-            height: 56,
+            width: 58,
+            height: 58,
             borderRadius: 18,
             background: 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)',
             border: '1.5px solid rgba(59, 130, 246, 0.4)',
@@ -123,7 +127,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         >
           ♠️
         </div>
-        <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#f3f4f6', marginTop: 4 }}>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f3f4f6', marginTop: 4 }}>
           Poker Chip Simulator
         </h1>
         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: 300 }}>
@@ -147,9 +151,9 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
       >
         <Wifi size={18} color="#60a5fa" style={{ flexShrink: 0, marginTop: 2 }} />
         <div style={{ fontSize: '0.76rem', color: '#bfdbfe', lineHeight: 1.4 }}>
-          <strong>ทดสอบเล่นด้วยกันในบ้าน (Wi-Fi เดียวกัน):</strong>
+          <strong>เล่นกับเพื่อนในบ้าน (Wi-Fi เดียวกัน):</strong>
           <div style={{ marginTop: 2 }}>
-            ให้แฟนเปิดเบราว์เซอร์แล้วเข้า:{' '}
+            ให้แฟนเปิดเว็บ:{' '}
             <code
               style={{
                 background: 'rgba(0,0,0,0.5)',
@@ -166,7 +170,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         </div>
       </div>
 
-      {/* Main Tab Box */}
+      {/* Main Container Card */}
       <div
         style={{
           width: '100%',
@@ -174,78 +178,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           background: 'var(--bg-card)',
           backdropFilter: 'var(--glass-blur)',
           border: '1px solid var(--border-subtle)',
-          borderRadius: 18,
-          padding: 16,
+          borderRadius: 20,
+          padding: 20,
           boxShadow: 'var(--shadow-lg)',
         }}
       >
-        {/* Large Touch-Friendly Tab Buttons */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 8,
-            background: 'rgba(0,0,0,0.4)',
-            padding: 4,
-            borderRadius: 12,
-            marginBottom: 16,
-          }}
-        >
-          <button
-            type="button"
-            style={{
-              padding: '12px 10px',
-              minHeight: 46,
-              fontSize: '0.88rem',
-              fontWeight: 700,
-              background: activeTab === 'create' ? '#2563eb' : 'transparent',
-              borderColor: activeTab === 'create' ? '#60a5fa' : 'transparent',
-              color: activeTab === 'create' ? '#ffffff' : '#9ca3af',
-              borderWidth: 1,
-              borderStyle: 'solid',
-              borderRadius: 10,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              cursor: 'pointer',
-              touchAction: 'manipulation',
-            }}
-            onClick={() => handleTabSwitch('create')}
-            onTouchEnd={() => handleTabSwitch('create')}
-          >
-            <PlusCircle size={16} />
-            <span>สร้างห้อง (Admin)</span>
-          </button>
-
-          <button
-            type="button"
-            style={{
-              padding: '12px 10px',
-              minHeight: 46,
-              fontSize: '0.88rem',
-              fontWeight: 700,
-              background: activeTab === 'join' ? '#10b981' : 'transparent',
-              borderColor: activeTab === 'join' ? '#34d399' : 'transparent',
-              color: activeTab === 'join' ? '#ffffff' : '#9ca3af',
-              borderWidth: 1,
-              borderStyle: 'solid',
-              borderRadius: 10,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              cursor: 'pointer',
-              touchAction: 'manipulation',
-            }}
-            onClick={() => handleTabSwitch('join')}
-            onTouchEnd={() => handleTabSwitch('join')}
-          >
-            <Users size={16} />
-            <span>เข้าด้วย PIN</span>
-          </button>
-        </div>
-
         {errorMsg && (
           <div
             style={{
@@ -255,7 +192,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               padding: '8px 12px',
               fontSize: '0.8rem',
               color: '#fca5a5',
-              marginBottom: 12,
+              marginBottom: 14,
               textAlign: 'center',
             }}
           >
@@ -263,145 +200,136 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           </div>
         )}
 
-        {/* TAB 1: CREATE ROOM */}
-        {activeTab === 'create' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                ชื่อผู้สร้างห้อง (Admin / Host)
-              </label>
-              <input
-                type="text"
-                value={hostName}
-                onChange={(e) => setHostName(e.target.value)}
-                placeholder="เช่น Patipon"
-                style={{
-                  width: '100%',
-                  background: 'rgba(0,0,0,0.5)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 10,
-                  padding: 12,
-                  color: 'white',
-                  fontSize: 16,
-                }}
-              />
+        {/* =======================================================
+            SCREEN 1: HOME (2 Big Choice Buttons)
+            ======================================================= */}
+        {currentScreen === 'home' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ textAlign: 'center', marginBottom: 4 }}>
+              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'white' }}>เลือกการเข้าใช้งาน</div>
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>คุณต้องการเข้าเล่นเป็นใคร?</div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>ชิปเริ่มต้น</label>
-                <input
-                  type="number"
-                  value={startingChips}
-                  onChange={(e) => setStartingChips(Number(e.target.value))}
-                  min={100}
-                  step={100}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(0,0,0,0.5)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 10,
-                    padding: 12,
-                    color: '#f59e0b',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
-                    fontSize: 16,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  กำหนด PIN (ไม่บังคับ)
-                </label>
-                <input
-                  type="text"
-                  value={customPin}
-                  onChange={(e) => setCustomPin(e.target.value)}
-                  placeholder="สุ่ม 4 หลัก"
-                  maxLength={6}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(0,0,0,0.5)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 10,
-                    padding: 12,
-                    color: '#93c5fd',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
-                    fontSize: 16,
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Small Blind</label>
-                <input
-                  type="number"
-                  value={smallBlind}
-                  onChange={(e) => setSmallBlind(Number(e.target.value))}
-                  min={1}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(0,0,0,0.5)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    padding: 10,
-                    color: 'white',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 16,
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Big Blind</label>
-                <input
-                  type="number"
-                  value={bigBlind}
-                  onChange={(e) => setBigBlind(Number(e.target.value))}
-                  min={2}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(0,0,0,0.5)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    padding: 10,
-                    color: 'white',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 16,
-                  }}
-                />
-              </div>
-            </div>
-
+            {/* BIG BUTTON 1: JOIN WITH PIN (Primary for players/girlfriend) */}
             <button
               type="button"
-              className="primary-btn"
-              disabled={isLoading || !hostName.trim()}
-              onClick={handleCreate}
-              style={{ marginTop: 8, minHeight: 50, fontSize: 16 }}
+              onClick={() => navigateTo('join')}
+              style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                border: '1px solid rgba(52, 211, 153, 0.4)',
+                borderRadius: 16,
+                padding: '18px 16px',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+                boxShadow: '0 6px 18px rgba(16, 185, 129, 0.35)',
+                transition: 'all 0.15s ease',
+              }}
             >
-              {isLoading ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  <span>กำลังสร้างห้อง...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles size={18} />
-                  <span>สร้างห้องและเข้าโต๊ะ</span>
-                </>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <KeyRound size={22} color="white" />
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 800 }}>เข้าห้องด้วย PIN</div>
+                  <div style={{ fontSize: '0.74rem', color: 'rgba(255, 255, 255, 0.85)' }}>
+                    สำหรับผู้เล่น / แฟน (กดเพื่อใส่รหัสห้อง)
+                  </div>
+                </div>
+              </div>
+              <ArrowRight size={20} color="white" />
+            </button>
+
+            {/* BIG BUTTON 2: CREATE ROOM (For Host) */}
+            <button
+              type="button"
+              onClick={() => navigateTo('create')}
+              style={{
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                border: '1px solid rgba(96, 165, 250, 0.4)',
+                borderRadius: 16,
+                padding: '18px 16px',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+                boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <PlusCircle size={22} color="white" />
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 800 }}>สร้างห้องใหม่ (Admin)</div>
+                  <div style={{ fontSize: '0.74rem', color: 'rgba(255, 255, 255, 0.85)' }}>
+                    สำหรับเจ้าของโต๊ะ (สร้าง PIN ให้คนอื่นเข้า)
+                  </div>
+                </div>
+              </div>
+              <ArrowRight size={20} color="white" />
             </button>
           </div>
-        ) : (
-          /* TAB 2: JOIN WITH PIN */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        )}
+
+        {/* =======================================================
+            SCREEN 2: JOIN WITH PIN (Direct screen to enter PIN)
+            ======================================================= */}
+        {currentScreen === 'join' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Header with Back Button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+              <button
+                type="button"
+                onClick={() => navigateTo('home')}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 10,
+                  padding: '6px 12px',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                <ArrowLeft size={15} />
+                <span>ย้อนกลับ</span>
+              </button>
+              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#34d399' }}>ใส่ PIN เพื่อเข้าห้อง</div>
+            </div>
+
             <div>
               <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                รหัสห้อง (Room PIN 4-6 หลัก)
+                รหัสห้อง (Room PIN)
               </label>
               <input
                 type="text"
@@ -409,18 +337,20 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 onChange={(e) => setJoinPin(e.target.value)}
                 placeholder="เช่น 5931"
                 maxLength={8}
+                autoFocus
                 style={{
                   width: '100%',
                   background: 'rgba(0,0,0,0.5)',
-                  border: '1px solid rgba(245, 158, 11, 0.5)',
-                  borderRadius: 10,
-                  padding: 12,
+                  border: '1.5px solid #f59e0b',
+                  borderRadius: 12,
+                  padding: '14px 10px',
                   color: '#f59e0b',
-                  fontSize: 20,
+                  fontSize: 22,
                   fontFamily: 'var(--font-mono)',
                   letterSpacing: 4,
                   textAlign: 'center',
-                  fontWeight: 800,
+                  fontWeight: 900,
+                  marginTop: 4,
                 }}
               />
             </div>
@@ -442,6 +372,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   padding: 12,
                   color: 'white',
                   fontSize: 16,
+                  marginTop: 4,
                 }}
               />
             </div>
@@ -466,6 +397,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   fontFamily: 'var(--font-mono)',
                   fontWeight: 700,
                   fontSize: 16,
+                  marginTop: 4,
                 }}
               />
             </div>
@@ -476,11 +408,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               disabled={isLoading || !joinPin.trim() || !joinPlayerName.trim()}
               onClick={handleJoin}
               style={{
-                marginTop: 8,
-                minHeight: 50,
+                marginTop: 6,
+                minHeight: 52,
                 fontSize: 16,
                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                boxShadow: '0 6px 20px rgba(16, 185, 129, 0.45)',
               }}
             >
               {isLoading ? (
@@ -492,6 +424,178 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 <>
                   <ArrowRight size={18} />
                   <span>เข้าห้องทันที</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* =======================================================
+            SCREEN 3: CREATE ROOM (Host / Admin Configuration)
+            ======================================================= */}
+        {currentScreen === 'create' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Header with Back Button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+              <button
+                type="button"
+                onClick={() => navigateTo('home')}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 10,
+                  padding: '6px 12px',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                <ArrowLeft size={15} />
+                <span>ย้อนกลับ</span>
+              </button>
+              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#60a5fa' }}>สร้างห้องใหม่ (Admin)</div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                ชื่อผู้สร้างห้อง (Admin / Host)
+              </label>
+              <input
+                type="text"
+                value={hostName}
+                onChange={(e) => setHostName(e.target.value)}
+                placeholder="เช่น Patipon"
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.5)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 10,
+                  padding: 12,
+                  color: 'white',
+                  fontSize: 16,
+                  marginTop: 4,
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>ชิปเริ่มต้น</label>
+                <input
+                  type="number"
+                  value={startingChips}
+                  onChange={(e) => setStartingChips(Number(e.target.value))}
+                  min={100}
+                  step={100}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0,0,0,0.5)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 10,
+                    padding: 12,
+                    color: '#f59e0b',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    fontSize: 16,
+                    marginTop: 4,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  กำหนด PIN (ไม่บังคับ)
+                </label>
+                <input
+                  type="text"
+                  value={customPin}
+                  onChange={(e) => setCustomPin(e.target.value)}
+                  placeholder="สุ่ม 4 หลัก"
+                  maxLength={6}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0,0,0,0.5)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 10,
+                    padding: 12,
+                    color: '#93c5fd',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    fontSize: 16,
+                    marginTop: 4,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Small Blind</label>
+                <input
+                  type="number"
+                  value={smallBlind}
+                  onChange={(e) => setSmallBlind(Number(e.target.value))}
+                  min={1}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0,0,0,0.5)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 8,
+                    padding: 10,
+                    color: 'white',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 16,
+                    marginTop: 4,
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Big Blind</label>
+                <input
+                  type="number"
+                  value={bigBlind}
+                  onChange={(e) => setBigBlind(Number(e.target.value))}
+                  min={2}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0,0,0,0.5)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 8,
+                    padding: 10,
+                    color: 'white',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 16,
+                    marginTop: 4,
+                  }}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="primary-btn"
+              disabled={isLoading || !hostName.trim()}
+              onClick={handleCreate}
+              style={{
+                marginTop: 6,
+                minHeight: 52,
+                fontSize: 16,
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                boxShadow: '0 6px 20px rgba(37, 99, 235, 0.45)',
+              }}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>กำลังสร้างห้อง...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={18} />
+                  <span>สร้างห้องและเข้าโต๊ะ</span>
                 </>
               )}
             </button>

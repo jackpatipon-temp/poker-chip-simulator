@@ -195,7 +195,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             key={player.id}
             player={player}
             seatIndex={idx}
-            totalSeats={Math.max(orderedPlayers.length, 3)}
+            totalSeats={orderedPlayers.length}
             isCurrentUser={player.id === currentUserId}
           />
         ))}

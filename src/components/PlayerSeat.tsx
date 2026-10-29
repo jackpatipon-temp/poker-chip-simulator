@@ -20,17 +20,25 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
   isCurrentUser,
 }) => {
   // Calculate elliptical coordinates around portrait poker table
-  // Bottom seat (angle = 90 deg) is reserved for current user / index 0
-  const angle = (2 * Math.PI * seatIndex) / totalSeats + Math.PI / 2;
-  const rx = 38; // horizontal radius in %
-  const ry = 42; // vertical radius in %
+  // For 2 players (heads-up): Seat 0 at bottom (90 deg), Seat 1 directly opposite at top (270 deg)
+  // For N players: evenly distribute around the table
+  let angle = Math.PI / 2;
+  if (totalSeats === 2) {
+    angle = seatIndex === 0 ? Math.PI / 2 : (3 * Math.PI) / 2;
+  } else {
+    angle = (2 * Math.PI * seatIndex) / totalSeats + Math.PI / 2;
+  }
+
+  // Optimized radii: seats sit cleanly on felt border without crowding the center pot
+  const rx = 35; // horizontal radius in %
+  const ry = 39; // vertical radius in %
 
   const x = 50 + rx * Math.cos(angle);
   const y = 50 + ry * Math.sin(angle);
 
   // Vector offset for bet chip towards table center (50%, 50%)
-  const betOffsetX = (50 - x) * 0.35;
-  const betOffsetY = (50 - y) * 0.35;
+  const betOffsetX = (50 - x) * 0.42;
+  const betOffsetY = (50 - y) * 0.42;
 
   const isSittingOut = player.status === 'sitting-out';
   const isFolded = player.status === 'folded';

@@ -78,10 +78,6 @@ button, input, select, textarea {
   pointer-events: auto;
 }
 
-button * {
-  pointer-events: none;
-}
-
 button:active {
   opacity: 0.82;
   filter: brightness(1.15);

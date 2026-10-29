@@ -29,6 +29,39 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                function logEvent(type, data) {
+                  try {
+                    fetch('/api/client-log', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ type: type, data: data, ua: navigator.userAgent, time: new Date().toISOString() })
+                    }).catch(function(){});
+                  } catch(e) {}
+                }
+                window.__logEvent = logEvent;
+                logEvent('HEAD_INIT', { url: location.href });
+                window.addEventListener('error', function(e) {
+                  logEvent('ERROR', { msg: e.message, src: e.filename, line: e.lineno, col: e.colno, stack: e.error ? e.error.stack : '' });
+                });
+                window.addEventListener('unhandledrejection', function(e) {
+                  logEvent('UNHANDLED_REJECTION', { reason: String(e.reason) });
+                });
+                document.addEventListener('DOMContentLoaded', function() {
+                  logEvent('DOM_CONTENT_LOADED', {});
+                });
+                window.addEventListener('load', function() {
+                  logEvent('WINDOW_LOADED', {});
+                });
+              })();
+            `,
+          }}
+        />
+      </head>
       <body suppressHydrationWarning>{children}</body>
     </html>
   );

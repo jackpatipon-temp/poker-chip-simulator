@@ -35,7 +35,19 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && (window as unknown as { __logEvent?: (t: string, d: unknown) => void }).__logEvent) {
+      (window as unknown as { __logEvent: (t: string, d: unknown) => void }).__logEvent('REACT_HYDRATED', {
+        component: 'LobbyView',
+        activeTab,
+      });
+    }
+  }, [activeTab]);
+
   const handleTabChange = (tab: 'join' | 'create') => {
+    if (typeof window !== 'undefined' && (window as unknown as { __logEvent?: (t: string, d: unknown) => void }).__logEvent) {
+      (window as unknown as { __logEvent: (t: string, d: unknown) => void }).__logEvent('TAB_CLICK', { tab });
+    }
     setActiveTab(tab);
     setErrorMsg('');
     try {
@@ -48,6 +60,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
   const handleJoin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (typeof window !== 'undefined' && (window as unknown as { __logEvent?: (t: string, d: unknown) => void }).__logEvent) {
+      (window as unknown as { __logEvent: (t: string, d: unknown) => void }).__logEvent('JOIN_BUTTON_PRESSED', {
+        pin: joinPin,
+        name: joinPlayerName,
+        chips: joinChips,
+      });
+    }
     if (!joinPin.trim()) {
       setErrorMsg('กรุณากรอกรหัสห้อง (PIN)');
       return;
@@ -76,6 +95,12 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
   const handleCreate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (typeof window !== 'undefined' && (window as unknown as { __logEvent?: (t: string, d: unknown) => void }).__logEvent) {
+      (window as unknown as { __logEvent: (t: string, d: unknown) => void }).__logEvent('CREATE_BUTTON_PRESSED', {
+        hostName,
+        startingChips,
+      });
+    }
     if (!hostName.trim()) {
       setErrorMsg('กรุณากรอกชื่อผู้สร้างห้อง');
       return;
@@ -354,7 +379,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             <button
               type="button"
               className="primary-btn"
-              disabled={isLoading || !joinPin.trim() || !joinPlayerName.trim()}
+              disabled={isLoading}
               onClick={() => handleJoin()}
               style={{
                 marginTop: 4,
@@ -508,7 +533,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             <button
               type="button"
               className="primary-btn"
-              disabled={isLoading || !hostName.trim()}
+              disabled={isLoading}
               onClick={() => handleCreate()}
               style={{
                 marginTop: 4,

@@ -2,7 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { PlusCircle, Wifi, ShieldAlert, ArrowRight, Sparkles, Loader2, KeyRound, LogOut, CheckCircle2 } from 'lucide-react';
+import {
+  PlusCircle,
+  Wifi,
+  ShieldAlert,
+  ArrowRight,
+  Sparkles,
+  Loader2,
+  KeyRound,
+  LogOut,
+  CheckCircle2,
+  Lock,
+  UserCheck,
+} from 'lucide-react';
 import { sound, triggerHaptic } from '@/lib/sound';
 import { GoogleUserProfile, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -29,8 +41,8 @@ interface LobbyViewProps {
   onOpenDisclaimer: () => void;
 }
 
-const GoogleIcon: React.FC = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+const GoogleIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
     <path
       fill="#4285F4"
       d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.9c2.28-2.1 3.64-5.2 3.64-9.15z"
@@ -60,16 +72,14 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   onJoinRoom,
   onOpenDisclaimer,
 }) => {
-  // Active Tab: 'join' (default for players/phone) | 'create' (for host)
+  // Active Tab: 'join' (default) | 'create' (for host)
   const [activeTab, setActiveTab] = useState<'join' | 'create'>('join');
 
-  // Join Room fields (Immediately visible on page load)
+  // Join Room fields
   const [joinPin, setJoinPin] = useState('');
-  const [joinPlayerName, setJoinPlayerName] = useState(user?.name || '');
   const [joinChips, setJoinChips] = useState(1000);
 
   // Create Room fields
-  const [hostName, setHostName] = useState(user?.name || 'Host Admin');
   const [startingChips, setStartingChips] = useState(1000);
   const [smallBlind, setSmallBlind] = useState(5);
   const [bigBlind, setBigBlind] = useState(10);
@@ -78,13 +88,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Sync Google user name to inputs whenever user logs in
-  useEffect(() => {
-    if (user?.name) {
-      setJoinPlayerName(user.name);
-      setHostName(user.name);
-    }
-  }, [user]);
+  // Fallback for offline dev testing if Supabase is unconfigured
+  const [devGuestUser, setDevGuestUser] = useState<GoogleUserProfile | null>(null);
+
+  const activeUser = user || devGuestUser;
 
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as unknown as { __logEvent?: (t: string, d: unknown) => void }).__logEvent) {
@@ -96,9 +103,6 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   }, [activeTab]);
 
   const handleTabChange = (tab: 'join' | 'create') => {
-    if (typeof window !== 'undefined' && (window as unknown as { __logEvent?: (t: string, d: unknown) => void }).__logEvent) {
-      (window as unknown as { __logEvent: (t: string, d: unknown) => void }).__logEvent('TAB_CLICK', { tab });
-    }
     setActiveTab(tab);
     setErrorMsg('');
     try {
@@ -110,20 +114,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const handleJoin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    // Check if Google Login is required
-    if (isSupabaseConfigured() && !user) {
-      setErrorMsg('กรุณาเข้าสู่ระบบด้วย Google ก่อนเข้าห้อง');
+    if (!activeUser) {
       onLoginWithGoogle();
       return;
     }
 
-    const finalName = (joinPlayerName || user?.name || '').trim();
     if (!joinPin.trim()) {
       setErrorMsg('กรุณากรอกรหัสห้อง (PIN)');
-      return;
-    }
-    if (!finalName) {
-      setErrorMsg('กรุณากรอกชื่อของคุณ');
       return;
     }
 
@@ -137,9 +134,9 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     try {
       await onJoinRoom(
         joinPin.trim(),
-        finalName,
+        activeUser.name,
         joinChips,
-        user?.avatarUrl
+        activeUser.avatarUrl
       );
     } catch (err: unknown) {
       setErrorMsg((err as Error).message || 'ไม่สามารถเข้าร่วมห้องได้ ตรวจสอบ PIN');
@@ -150,16 +147,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const handleCreate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    // Check if Google Login is required
-    if (isSupabaseConfigured() && !user) {
-      setErrorMsg('กรุณาเข้าสู่ระบบด้วย Google ก่อนสร้างห้อง');
+    if (!activeUser) {
       onLoginWithGoogle();
-      return;
-    }
-
-    const finalName = (hostName || user?.name || '').trim();
-    if (!finalName) {
-      setErrorMsg('กรุณากรอกชื่อผู้สร้างห้อง');
       return;
     }
 
@@ -172,12 +161,12 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
     try {
       await onCreateRoom(
-        finalName,
+        activeUser.name,
         startingChips,
         smallBlind,
         bigBlind,
         customPin.trim() || undefined,
-        user?.avatarUrl
+        activeUser.avatarUrl
       );
     } catch (err: unknown) {
       setErrorMsg((err as Error).message || 'เกิดข้อผิดพลาดในการสร้างห้อง');
@@ -185,13 +174,237 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     }
   };
 
+  // =========================================================================
+  // VIEW 1: LOADING AUTH STATE
+  // =========================================================================
+  if (isAuthLoading) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '70vh',
+          gap: 16,
+          color: 'var(--text-muted)',
+          fontSize: '0.9rem',
+        }}
+      >
+        <Loader2 size={36} className="animate-spin" color="#3b82f6" />
+        <span>กำลังตรวจสอบการเข้าสู่ระบบ Google...</span>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 2: NOT LOGGED IN -> SHOW ONLY GOOGLE LOGIN
+  // =========================================================================
+  if (!activeUser) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '36px 16px',
+          width: '100%',
+          minHeight: '85vh',
+          gap: 20,
+          position: 'relative',
+          zIndex: 10,
+        }}
+      >
+        {/* Brand Header */}
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 20,
+              background: 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)',
+              border: '2px solid rgba(59, 130, 246, 0.5)',
+              boxShadow: '0 8px 30px rgba(37, 99, 235, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2.2rem',
+            }}
+          >
+            ♠️
+          </div>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#f3f4f6', marginTop: 4 }}>
+            Poker Chip Simulator
+          </h1>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: 320, lineHeight: 1.5 }}>
+            ระบบจำลองชิปสำหรับเล่นโป๊กเกอร์แบบออฟไลน์ด้วยสำรับไพ่จริง
+          </p>
+        </div>
+
+        {/* Dedicated Google Sign-In Card */}
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 380,
+            background: 'var(--bg-card)',
+            backdropFilter: 'var(--glass-blur)',
+            border: '1.5px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: 24,
+            padding: '28px 20px',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 18,
+            textAlign: 'center',
+          }}
+        >
+          <div>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 12px',
+                borderRadius: 20,
+                background: 'rgba(59, 130, 246, 0.15)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                color: '#93c5fd',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                marginBottom: 10,
+              }}
+            >
+              <UserCheck size={14} />
+              <span>ยืนยันตัวตนก่อนเข้าเล่น</span>
+            </div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+              เข้าสู่ระบบด้วย Google
+            </h2>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
+              ระบบจะใช้ชื่อและรูปโปรไฟล์ Google ของคุณเพื่อความโปร่งใสในโต๊ะเกม
+            </p>
+          </div>
+
+          {/* Official Style Google Button */}
+          <button
+            type="button"
+            onClick={onLoginWithGoogle}
+            style={{
+              width: '100%',
+              background: '#ffffff',
+              color: '#1f2937',
+              border: 'none',
+              borderRadius: 12,
+              padding: '14px 18px',
+              fontSize: '0.95rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+              transition: 'transform 0.1s ease',
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = 'scale(0.98)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            <GoogleIcon size={22} />
+            <span>เข้าสู่ระบบด้วย Google</span>
+          </button>
+
+          {/* Trust & Security Notes */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              paddingTop: 8,
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              fontSize: '0.72rem',
+              color: 'var(--text-muted)',
+              textAlign: 'left',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckCircle2 size={13} color="#10b981" />
+              <span>แสดงชื่อและรูปโปรไฟล์จริงบนเก้าอี้โป๊กเกอร์</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckCircle2 size={13} color="#10b981" />
+              <span>ป้องกันการปลอมแปลงชื่อในวงปาร์ตี้</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckCircle2 size={13} color="#10b981" />
+              <span>ปลอดภัยผ่าน Supabase Auth (ไม่บันทึกรหัสผ่าน)</span>
+            </div>
+          </div>
+
+          {/* Offline / Localhost Dev Fallback Bypass */}
+          {!isSupabaseConfigured() && (
+            <button
+              type="button"
+              onClick={() => {
+                setDevGuestUser({
+                  id: 'dev_user_1',
+                  name: 'ทดสอบโหมดออฟไลน์',
+                  email: 'dev@local.test',
+                  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+                });
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#9ca3af',
+                fontSize: '0.72rem',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                marginTop: 4,
+              }}
+            >
+              ⚡ เข้าใช้งานแบบ Guest (เฉพาะโหมดพัฒนาในเครื่อง Local)
+            </button>
+          )}
+        </div>
+
+        {/* Footer Disclaimer Link */}
+        <button
+          type="button"
+          onClick={onOpenDisclaimer}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-dim)',
+            fontSize: '0.74rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer',
+            padding: 8,
+          }}
+        >
+          <ShieldAlert size={14} color="#ef4444" />
+          <span>ข้อตกลงและคำเตือนการใช้งาน (ไม่สนับสนุนการพนันเงินจริง)</span>
+        </button>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 3: LOGGED IN WITH GOOGLE -> JOIN / CREATE ROOM INTERFACE
+  // =========================================================================
   return (
     <div
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '24px 16px',
+        padding: '20px 16px',
         width: '100%',
         minHeight: '100%',
         gap: 14,
@@ -199,235 +412,122 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         zIndex: 10,
       }}
     >
-      {/* Brand Hero */}
-      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 18,
-            background: 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)',
-            border: '1.5px solid rgba(59, 130, 246, 0.4)',
-            boxShadow: '0 8px 24px rgba(37, 99, 235, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.8rem',
-          }}
-        >
-          ♠️
-        </div>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f3f4f6', marginTop: 4 }}>
-          Poker Chip Simulator
+      {/* Brand Mini Header */}
+      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+        <h1 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#f3f4f6' }}>
+          ♠️ Poker Chip Simulator
         </h1>
-        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: 300 }}>
-          จำลองชิปและเงินเดิมพันสำหรับวงปาร์ตี้ เล่นด้วยสำรับไพ่จริงนอกจอ
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          ระบบจำลองชิปสำหรับวงปาร์ตี้ เล่นด้วยสำรับไพ่จริงนอกจอ
         </p>
       </div>
 
-      {/* =========================================================
-          SECTION: GOOGLE AUTHENTICATION (LOGIN STATUS / BUTTON)
-          ========================================================= */}
+      {/* User Google Profile Banner (Locked Account) */}
       <div
         style={{
           width: '100%',
           maxWidth: 400,
-          borderRadius: 16,
-          overflow: 'hidden',
+          background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.7) 100%)',
+          border: '1.5px solid rgba(59, 130, 246, 0.45)',
+          borderRadius: 18,
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.35)',
         }}
       >
-        {isAuthLoading ? (
-          <div
-            style={{
-              background: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 16,
-              padding: '12px 16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              color: 'var(--text-muted)',
-              fontSize: '0.82rem',
-            }}
-          >
-            <Loader2 size={16} className="animate-spin" color="#3b82f6" />
-            <span>กำลังตรวจสอบสถานะการเข้าสู่ระบบ...</span>
-          </div>
-        ) : user ? (
-          /* LOGGED IN: User Profile Card */
-          <div
-            style={{
-              background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.35) 0%, rgba(15, 23, 42, 0.6) 100%)',
-              border: '1px solid rgba(59, 130, 246, 0.4)',
-              borderRadius: 16,
-              padding: '12px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-              <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
-                <Image
-                  src={user.avatarUrl}
-                  alt={user.name}
-                  width={44}
-                  height={44}
-                  style={{
-                    borderRadius: '50%',
-                    border: '2px solid #3b82f6',
-                    objectFit: 'cover',
-                  }}
-                  unoptimized
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: -2,
-                    right: -2,
-                    background: '#10b981',
-                    borderRadius: '50%',
-                    width: 14,
-                    height: 14,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '2px solid #0f172a',
-                  }}
-                  title="เข้าสู่ระบบผ่าน Google แล้ว"
-                >
-                  <CheckCircle2 size={10} color="#ffffff" />
-                </div>
-              </div>
-
-              <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                <div
-                  style={{
-                    fontSize: '0.9rem',
-                    fontWeight: 700,
-                    color: '#ffffff',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {user.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: '0.72rem',
-                    color: '#93c5fd',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {user.email || 'เข้าสู่ระบบด้วย Google แล้ว'}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={onLogoutGoogle}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
+            <Image
+              src={activeUser.avatarUrl}
+              alt={activeUser.name}
+              width={44}
+              height={44}
               style={{
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.35)',
-                borderRadius: 8,
-                color: '#fca5a5',
-                fontSize: '0.74rem',
-                fontWeight: 600,
-                padding: '6px 10px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                flexShrink: 0,
+                borderRadius: '50%',
+                border: '2px solid #3b82f6',
+                objectFit: 'cover',
               }}
-              title="ออกจากระบบเพื่อสลับบัญชี Google"
-            >
-              <LogOut size={13} />
-              <span>ออก</span>
-            </button>
-          </div>
-        ) : (
-          /* NOT LOGGED IN: Google Sign-in Prompt */
-          <div
-            style={{
-              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
-              border: '1.5px solid rgba(255, 255, 255, 0.18)',
-              borderRadius: 16,
-              padding: '14px 16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <GoogleIcon />
-              <div>
-                <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#ffffff' }}>
-                  เข้าสู่ระบบด้วย Google ก่อนเริ่มเล่น
-                </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  เพื่อดึงรูปโปรไฟล์และชื่อจริงของคุณไปแสดงบนโต๊ะเกม
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={onLoginWithGoogle}
+              unoptimized
+            />
+            <div
               style={{
-                width: '100%',
-                background: '#ffffff',
-                color: '#1f2937',
-                border: '1px solid #d1d5db',
-                borderRadius: 10,
-                padding: '10px 14px',
-                fontSize: '0.88rem',
-                fontWeight: 700,
+                position: 'absolute',
+                bottom: -2,
+                right: -2,
+                background: '#10b981',
+                borderRadius: '50%',
+                width: 14,
+                height: 14,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
-                transition: 'all 0.15s ease',
+                border: '2px solid #0f172a',
+              }}
+              title="เข้าสู่ระบบผ่าน Google แล้ว"
+            >
+              <CheckCircle2 size={10} color="#ffffff" />
+            </div>
+          </div>
+
+          <div style={{ minWidth: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                fontSize: '0.92rem',
+                fontWeight: 800,
+                color: '#ffffff',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
-              <GoogleIcon />
-              <span>เข้าสู่ระบบด้วย Google (Sign in)</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* LAN Wi-Fi Connection Box */}
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 400,
-          background: 'rgba(59, 130, 246, 0.12)',
-          border: '1px solid rgba(59, 130, 246, 0.35)',
-          borderRadius: 14,
-          padding: '10px 12px',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 10,
-        }}
-      >
-        <Wifi size={18} color="#60a5fa" style={{ flexShrink: 0, marginTop: 2 }} />
-        <div style={{ fontSize: '0.76rem', color: '#bfdbfe', lineHeight: 1.4 }}>
-          <strong>เล่นด้วยกันบนมือถือ & คอมพิวเตอร์:</strong>
-          <div style={{ marginTop: 2 }}>
-            เปิดลิงก์เว็บเดียวกันแล้วใส่รหัส PIN เพื่อลงชื่อนั่งโต๊ะด้วยกันแบบ Real-time
+              {activeUser.name}
+            </div>
+            <div
+              style={{
+                fontSize: '0.72rem',
+                color: '#93c5fd',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              <GoogleIcon size={12} />
+              <span>{activeUser.email || 'Google Account'}</span>
+            </div>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (devGuestUser) setDevGuestUser(null);
+            else onLogoutGoogle();
+          }}
+          style={{
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            borderRadius: 8,
+            color: '#fca5a5',
+            fontSize: '0.74rem',
+            fontWeight: 700,
+            padding: '6px 10px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            flexShrink: 0,
+          }}
+          title="ออกจากระบบเพื่อสลับบัญชี Google"
+        >
+          <LogOut size={13} />
+          <span>สลับบัญชี</span>
+        </button>
       </div>
 
       {/* Main Card with Tabs */}
@@ -527,7 +627,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         )}
 
         {/* =========================================================
-            TAB 1: JOIN WITH PIN (ACTIVE BY DEFAULT FOR MOBILE PLAYERS)
+            TAB 1: JOIN WITH PIN (ACTIVE BY DEFAULT)
             ========================================================= */}
         <div
           id="tab-content-join"
@@ -569,34 +669,33 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             />
           </div>
 
+          {/* LOCKED GOOGLE NAME FOR PLAYER */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                ชื่อของคุณ (Player Name)
+              <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Lock size={12} color="#93c5fd" />
+                <span>ชื่อของคุณ (บัญชี Google)</span>
               </label>
-              {user && (
-                <span style={{ fontSize: '0.7rem', color: '#6ee7b7', fontWeight: 600 }}>
-                  ✓ ใช้บัญชี Google
-                </span>
-              )}
+              <span style={{ fontSize: '0.68rem', color: '#6ee7b7', fontWeight: 700 }}>
+                🔒 ล็อกตามบัญชี Google
+              </span>
             </div>
             <input
               id="input-join-name"
               type="text"
-              value={joinPlayerName}
-              onChange={(e) => setJoinPlayerName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleJoin();
-              }}
-              placeholder={user?.name || "เช่น ผู้เล่น 1"}
+              value={activeUser.name}
+              readOnly
+              disabled
               style={{
                 width: '100%',
-                background: 'rgba(0,0,0,0.5)',
-                border: '1px solid var(--border-subtle)',
+                background: 'rgba(30, 58, 138, 0.2)',
+                border: '1.5px solid rgba(59, 130, 246, 0.4)',
                 borderRadius: 10,
                 padding: 12,
-                color: 'white',
+                color: '#ffffff',
                 fontSize: 16,
+                fontWeight: 700,
+                cursor: 'not-allowed',
               }}
             />
           </div>
@@ -669,34 +768,33 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             gap: 14,
           }}
         >
+          {/* LOCKED GOOGLE NAME FOR HOST */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <label style={{ fontSize: '0.78rem', color: '#60a5fa', fontWeight: 700 }}>
-                ชื่อผู้สร้างห้อง (Admin / Host)
+              <label style={{ fontSize: '0.78rem', color: '#60a5fa', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Lock size={12} color="#93c5fd" />
+                <span>ชื่อผู้สร้างห้อง (บัญชี Google)</span>
               </label>
-              {user && (
-                <span style={{ fontSize: '0.7rem', color: '#6ee7b7', fontWeight: 600 }}>
-                  ✓ ใช้บัญชี Google
-                </span>
-              )}
+              <span style={{ fontSize: '0.68rem', color: '#6ee7b7', fontWeight: 700 }}>
+                🔒 ล็อกตามบัญชี Google
+              </span>
             </div>
             <input
               id="input-host-name"
               type="text"
-              value={hostName}
-              onChange={(e) => setHostName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate();
-              }}
-              placeholder={user?.name || "เช่น Host Admin"}
+              value={activeUser.name}
+              readOnly
+              disabled
               style={{
                 width: '100%',
-                background: 'rgba(0,0,0,0.5)',
-                border: '1px solid var(--border-subtle)',
+                background: 'rgba(30, 58, 138, 0.2)',
+                border: '1.5px solid rgba(59, 130, 246, 0.4)',
                 borderRadius: 10,
                 padding: 12,
-                color: 'white',
+                color: '#ffffff',
                 fontSize: 16,
+                fontWeight: 700,
+                cursor: 'not-allowed',
               }}
             />
           </div>

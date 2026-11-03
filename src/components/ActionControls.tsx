@@ -16,7 +16,6 @@ interface ActionControlsProps {
   onCheck: () => void;
   onCall: () => void;
   onOpenRaiseModal: () => void;
-  onSwitchActor?: (playerId: string) => void;
 }
 
 export const ActionControls: React.FC<ActionControlsProps> = ({
@@ -29,7 +28,6 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   onCheck,
   onCall,
   onOpenRaiseModal,
-  onSwitchActor,
 }) => {
   if (!player) return null;
 
@@ -98,32 +96,6 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             </>
           )}
         </div>
-
-        {/* LAN testing switcher: allows acting on behalf of active actor when testing alone */}
-        {!isMyTurn && activeActor && onSwitchActor && (
-          <button
-            type="button"
-            onClick={() => onSwitchActor(activeActor.id)}
-            style={{
-              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: 8,
-              color: '#ffffff',
-              fontSize: '0.74rem',
-              fontWeight: 700,
-              padding: '6px 12px',
-              cursor: 'pointer',
-              boxShadow: '0 2px 10px rgba(37, 99, 235, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-            title="กดเพื่อสลับมาทดสอบเล่นในบทบาทของคนนี้"
-          >
-            <span>⚡ สลับมาเล่นแทน</span>
-            <span style={{ color: '#fef08a' }}>{activeActor.name}</span>
-          </button>
-        )}
       </div>
 
       <div className="action-buttons-row">

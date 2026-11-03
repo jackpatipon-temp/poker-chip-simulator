@@ -664,7 +664,6 @@ export function PokerClientApp({
             onCheck={handleCheck}
             onCall={handleCall}
             onOpenRaiseModal={() => setIsRaiseModalOpen(true)}
-            onSwitchActor={(actorId) => setCurrentUserId(actorId)}
           />
 
           {/* Raise Modal */}

@@ -244,3 +244,4 @@ export class HostPlayer extends Player {
     return this._adminPermissions.includes(permission);
   }
 }
+

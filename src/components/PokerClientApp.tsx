@@ -13,6 +13,14 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { DisclaimerModal } from '@/components/DisclaimerModal';
 import { LobbyView } from '@/components/LobbyView';
 import { Check, X, Loader2 } from 'lucide-react';
+import {
+  supabase,
+  isSupabaseConfigured,
+  signInWithGoogle,
+  signOutGoogle,
+  extractGoogleProfile,
+  GoogleUserProfile,
+} from '@/lib/supabase';
 
 interface PokerClientAppProps {
   initialPin?: string | null;
@@ -52,6 +60,54 @@ export function PokerClientApp({
   // Sound and Haptic preferences
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [hapticEnabled, setHapticEnabled] = useState(true);
+
+  // Google Authentication State
+  const [authUser, setAuthUser] = useState<GoogleUserProfile | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // Monitor Google OAuth session via Supabase
+  useEffect(() => {
+    let isMounted = true;
+
+    if (isSupabaseConfigured()) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (isMounted) {
+          if (session?.user) {
+            setAuthUser(extractGoogleProfile(session.user));
+          }
+          setIsAuthLoading(false);
+        }
+      }).catch(() => {
+        if (isMounted) setIsAuthLoading(false);
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (isMounted) {
+          if (session?.user) {
+            setAuthUser(extractGoogleProfile(session.user));
+          } else {
+            setAuthUser(null);
+          }
+        }
+      });
+
+      return () => {
+        isMounted = false;
+        subscription.unsubscribe();
+      };
+    } else {
+      setIsAuthLoading(false);
+    }
+  }, []);
+
+  const handleLoginWithGoogle = async () => {
+    await signInWithGoogle();
+  };
+
+  const handleLogoutGoogle = async () => {
+    await signOutGoogle();
+    setAuthUser(null);
+  };
 
   // Polling ref to prevent overlapping requests
   const isPollingRef = useRef(false);
@@ -177,13 +233,21 @@ export function PokerClientApp({
     chips: number,
     sb: number,
     bb: number,
-    customPin?: string
+    customPin?: string,
+    hostAvatar?: string
   ) => {
+    const avatar =
+      hostAvatar ||
+      authUser?.avatarUrl ||
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
+    const finalHostName = (hostName || authUser?.name || 'Host Admin').trim();
+
     const res = await fetch('/api/rooms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        hostName,
+        hostName: finalHostName,
+        hostAvatar: avatar,
         startingChips: chips,
         smallBlind: sb,
         bigBlind: bb,
@@ -209,13 +273,25 @@ export function PokerClientApp({
   };
 
   // Join Room handler
-  const handleJoinRoom = async (pin: string, playerName: string, chips: number) => {
+  const handleJoinRoom = async (
+    pin: string,
+    playerName: string,
+    chips: number,
+    playerAvatar?: string
+  ) => {
+    const avatar =
+      playerAvatar ||
+      authUser?.avatarUrl ||
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80';
+    const finalPlayerName = (playerName || authUser?.name || 'Player').trim();
+
     const res = await fetch(`/api/rooms/${pin}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         type: 'JOIN',
-        playerName,
+        playerName: finalPlayerName,
+        playerAvatar: avatar,
         requestedChips: chips,
       }),
     });
@@ -401,6 +477,10 @@ export function PokerClientApp({
       {!currentPin ? (
         <LobbyView
           localIp="192.168.1.106"
+          user={authUser}
+          isAuthLoading={isAuthLoading}
+          onLoginWithGoogle={handleLoginWithGoogle}
+          onLogoutGoogle={handleLogoutGoogle}
           onCreateRoom={handleCreateRoom}
           onJoinRoom={handleJoinRoom}
           onOpenDisclaimer={() => setIsDisclaimerOpen(true)}
@@ -554,6 +634,8 @@ export function PokerClientApp({
             ante={roomState.ante}
             isHost={isHost}
             isSittingOut={currentPlayer?.status === 'sitting-out'}
+            userAvatar={currentPlayer?.avatarUrl || authUser?.avatarUrl}
+            userName={currentPlayer?.name || authUser?.name}
             onToggleSittingOut={handleToggleSittingOut}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenAdmin={() => setIsAdminPanelOpen(true)}

@@ -19,6 +19,14 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
   totalSeats,
   isCurrentUser,
 }) => {
+  const fallbackAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
+  const [avatarSrc, setAvatarSrc] = React.useState(player.avatarUrl || fallbackAvatar);
+
+  React.useEffect(() => {
+    if (player.avatarUrl) {
+      setAvatarSrc(player.avatarUrl);
+    }
+  }, [player.avatarUrl]);
   // Calculate elliptical coordinates around portrait poker table
   // For 2 players (heads-up): Seat 0 at bottom (90 deg), Seat 1 directly opposite at top (270 deg)
   // For N players: evenly distribute around the table
@@ -87,11 +95,12 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
         {/* Google Profile Avatar */}
         <div className="avatar-wrapper">
           <Image
-            src={player.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
+            src={avatarSrc}
             alt={player.name}
             className="avatar-img"
             width={32}
             height={32}
+            onError={() => setAvatarSrc(fallbackAvatar)}
             unoptimized
           />
           {isSittingOut && (

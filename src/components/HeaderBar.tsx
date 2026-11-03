@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Maximize2, Minimize2, Settings, ShieldCheck, Coffee, Menu } from 'lucide-react';
 import { Street } from '@/types/poker';
 import { sound, triggerHaptic } from '@/lib/sound';
@@ -12,6 +13,8 @@ interface HeaderBarProps {
   ante: number;
   isHost: boolean;
   isSittingOut: boolean;
+  userAvatar?: string;
+  userName?: string;
   onToggleSittingOut: () => void;
   onOpenSettings: () => void;
   onOpenAdmin: () => void;
@@ -24,6 +27,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   ante,
   isHost,
   isSittingOut,
+  userAvatar,
+  userName,
   onToggleSittingOut,
   onOpenSettings,
   onOpenAdmin,
@@ -106,6 +111,30 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       </div>
 
       <div className="header-right">
+        {userAvatar && (
+          <div
+            style={{
+              position: 'relative',
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              overflow: 'hidden',
+              border: '1.5px solid #3b82f6',
+              flexShrink: 0,
+            }}
+            title={userName || 'บัญชีของคุณ'}
+          >
+            <Image
+              src={userAvatar}
+              alt={userName || 'Avatar'}
+              width={28}
+              height={28}
+              style={{ objectFit: 'cover' }}
+              unoptimized
+            />
+          </div>
+        )}
+
         <button
           type="button"
           className="icon-btn"

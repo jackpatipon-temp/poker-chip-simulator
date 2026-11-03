@@ -124,6 +124,10 @@ export const requestJoinServerRoom = (
   // Check if player with same name is already seated
   const existingPlayer = room.players.find(p => p.name.toLowerCase() === playerName.toLowerCase());
   if (existingPlayer) {
+    if (playerAvatar) {
+      existingPlayer.avatarUrl = playerAvatar;
+      broadcastRoomUpdate(room);
+    }
     return { room, request: null, player: existingPlayer };
   }
 

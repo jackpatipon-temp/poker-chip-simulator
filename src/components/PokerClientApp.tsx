@@ -124,6 +124,26 @@ export function PokerClientApp({
     }
   }, []);
 
+  // Sync browser Back/Forward history buttons with room state
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window === 'undefined') return;
+      const urlParams = new URLSearchParams(window.location.search);
+      const pin = urlParams.get('pin');
+      const userId = urlParams.get('userId');
+      if (!pin) {
+        setCurrentPin(null);
+        setRoomState(null);
+        setCurrentUserId(null);
+      } else {
+        setCurrentPin(pin);
+        if (userId) setCurrentUserId(userId);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Instant Real-Time Synchronization via Server-Sent Events (SSE) + fallback polling
   useEffect(() => {
     if (!currentPin) return;
@@ -175,7 +195,7 @@ export function PokerClientApp({
         } else if (res.status === 404) {
           consecutive404Ref.current += 1;
           // Only redirect if room is persistently 404 for at least 6 consecutive checks (9 seconds)
-          if (consecutive404Ref.current >= 6) {
+          if (consecutive404Ref.current >= 2) {
             setCurrentPin(null);
             setRoomState(null);
             setCurrentUserId(null);
@@ -267,15 +287,19 @@ export function PokerClientApp({
       throw new Error(data.error || 'สร้างห้องไม่สำเร็จ');
     }
 
-    setCurrentPin(data.pin);
-    setRoomState(data.room);
     const hostPlayerId = data.room.players[0].id;
+    setCurrentPin(data.pin);
     setCurrentUserId(hostPlayerId);
+    setRoomState(data.room);
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('poker_room_pin', data.pin);
       localStorage.setItem('poker_user_id', hostPlayerId);
-      window.location.href = `/?pin=${encodeURIComponent(data.pin)}&userId=${encodeURIComponent(hostPlayerId)}`;
+      window.history.pushState(
+        {},
+        '',
+        `/?pin=${encodeURIComponent(data.pin)}&userId=${encodeURIComponent(hostPlayerId)}`
+      );
     }
   };
 
@@ -328,7 +352,11 @@ export function PokerClientApp({
       if (typeof window !== 'undefined') {
         localStorage.setItem('poker_room_pin', pin);
         localStorage.setItem('poker_user_id', assignedId);
-        window.location.href = `/?pin=${encodeURIComponent(pin)}&userId=${encodeURIComponent(assignedId)}`;
+        window.history.pushState(
+          {},
+          '',
+          `/?pin=${encodeURIComponent(pin)}&userId=${encodeURIComponent(assignedId)}`
+        );
       }
     }
   };
@@ -473,35 +501,15 @@ export function PokerClientApp({
     [sendRoomAction]
   );
 
-  // Send leave beacon when user closes browser tab or navigates away
-  useEffect(() => {
-    if (!currentPin || !currentUserId) return;
-    const handleBeforeUnload = () => {
-      const payload = JSON.stringify({ type: 'LEAVE', playerId: currentUserId });
-      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-        navigator.sendBeacon(`/api/rooms/${currentPin}`, new Blob([payload], { type: 'application/json' }));
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('pagehide', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('pagehide', handleBeforeUnload);
-    };
-  }, [currentPin, currentUserId]);
+
 
   const handleLeaveRoom = useCallback(async () => {
     if (currentUserId && currentPin) {
       try {
-        const payload = JSON.stringify({ type: 'LEAVE', playerId: currentUserId });
-        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-          navigator.sendBeacon(`/api/rooms/${currentPin}`, new Blob([payload], { type: 'application/json' }));
-        }
         await fetch(`/api/rooms/${currentPin}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: payload,
-          keepalive: true,
+          body: JSON.stringify({ type: 'LEAVE', playerId: currentUserId }),
         }).catch(() => {});
       } catch {}
     }
@@ -510,7 +518,7 @@ export function PokerClientApp({
         localStorage.removeItem('poker_room_pin');
         localStorage.removeItem('poker_user_id');
       } catch {}
-      window.location.replace('/');
+      window.history.pushState({}, '', '/');
     }
     setCurrentPin(null);
     setRoomState(null);

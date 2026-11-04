@@ -133,10 +133,11 @@ export const requestJoinServerRoom = (
     }
   }
 
-  // 2. Check if player with same name is already seated
-  const existingPlayer = room.players.find(
-    p => p.name.trim().toLowerCase() === playerName.trim().toLowerCase()
-  );
+  // 2. Check if player with same name is already seated (safe against null/undefined)
+  const cleanName = (playerName || '').trim().toLowerCase();
+  const existingPlayer = cleanName
+    ? room.players.find(p => (p.name || '').trim().toLowerCase() === cleanName)
+    : null;
   if (existingPlayer) {
     if (playerAvatar) {
       existingPlayer.avatarUrl = playerAvatar;

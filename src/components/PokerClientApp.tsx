@@ -358,22 +358,71 @@ export function PokerClientApp({
     prevIsMyTurnRef.current = Boolean(isMyTurn && isHandActive);
   }, [isMyTurn, roomState?.isFirstHandStarted, roomState?.street]);
 
-  // Actions
+  // Actions (Optimistic UI: immediately updates player screen for zero-latency feel)
   const handleFold = useCallback(() => {
     const actorId = currentUserId || activeActor?.id;
     if (!actorId) return;
+
+    // Optimistic local update
+    setRoomState(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        players: prev.players.map(p =>
+          p.id === actorId ? { ...p, status: 'folded', isTurn: false } : p
+        ),
+      };
+    });
+
     sendRoomAction({ type: 'ACTION', playerId: actorId, action: 'fold' });
   }, [currentUserId, activeActor, sendRoomAction]);
 
   const handleCheck = useCallback(() => {
     const actorId = currentUserId || activeActor?.id;
     if (!actorId) return;
+
+    // Optimistic local update: disable buttons instantly
+    setRoomState(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        players: prev.players.map(p =>
+          p.id === actorId ? { ...p, hasActedThisRound: true, isTurn: false } : p
+        ),
+      };
+    });
+
     sendRoomAction({ type: 'ACTION', playerId: actorId, action: 'check' });
   }, [currentUserId, activeActor, sendRoomAction]);
 
   const handleCall = useCallback(() => {
     const actorId = currentUserId || activeActor?.id;
     if (!actorId) return;
+
+    // Optimistic local update
+    setRoomState(prev => {
+      if (!prev) return prev;
+      const me = prev.players.find(p => p.id === actorId);
+      const callDiff = me ? Math.max(0, prev.currentHighestBet - me.currentBet) : 0;
+      const callAmt = me ? Math.min(callDiff, me.chips) : 0;
+      return {
+        ...prev,
+        pot: prev.pot + callAmt,
+        players: prev.players.map(p =>
+          p.id === actorId
+            ? {
+                ...p,
+                chips: Math.max(0, p.chips - callAmt),
+                currentBet: p.currentBet + callAmt,
+                totalRoundBet: p.totalRoundBet + callAmt,
+                hasActedThisRound: true,
+                isTurn: false,
+              }
+            : p
+        ),
+      };
+    });
+
     sendRoomAction({ type: 'ACTION', playerId: actorId, action: 'call' });
   }, [currentUserId, activeActor, sendRoomAction]);
 
@@ -381,6 +430,34 @@ export function PokerClientApp({
     (totalAmount: number) => {
       const actorId = currentUserId || activeActor?.id;
       if (!actorId) return;
+
+      setIsRaiseModalOpen(false);
+
+      // Optimistic local update
+      setRoomState(prev => {
+        if (!prev) return prev;
+        const me = prev.players.find(p => p.id === actorId);
+        const addCost = me ? Math.max(0, totalAmount - me.currentBet) : 0;
+        const actualWager = me ? Math.min(addCost, me.chips) : 0;
+        return {
+          ...prev,
+          pot: prev.pot + actualWager,
+          currentHighestBet: totalAmount,
+          players: prev.players.map(p =>
+            p.id === actorId
+              ? {
+                  ...p,
+                  chips: Math.max(0, p.chips - actualWager),
+                  currentBet: totalAmount,
+                  totalRoundBet: p.totalRoundBet + actualWager,
+                  hasActedThisRound: true,
+                  isTurn: false,
+                }
+              : p
+          ),
+        };
+      });
+
       sendRoomAction({
         type: 'ACTION',
         playerId: actorId,
@@ -388,7 +465,6 @@ export function PokerClientApp({
         raiseAmount: totalAmount,
         totalAmount: totalAmount,
       });
-      setIsRaiseModalOpen(false);
     },
     [currentUserId, activeActor, sendRoomAction]
   );

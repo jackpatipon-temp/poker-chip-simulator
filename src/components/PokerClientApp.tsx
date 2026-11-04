@@ -155,14 +155,6 @@ export function PokerClientApp({
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data && data.deleted) {
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('poker_room_pin');
-              localStorage.removeItem('poker_user_id');
-              window.location.replace('/');
-            }
-            return;
-          }
           if (data && data.roomId) {
             setRoomState(data);
           }
@@ -181,29 +173,14 @@ export function PokerClientApp({
         if (res.ok) {
           consecutive404Ref.current = 0;
           const data = await res.json();
-          if (data.deleted && !data.room) {
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('poker_room_pin');
-              localStorage.removeItem('poker_user_id');
-              window.location.replace('/');
-            }
-            return;
-          }
           if (data.success && data.room) {
             setRoomState(data.room);
           }
         } else if (res.status === 404) {
           consecutive404Ref.current += 1;
-          // Only redirect if room is persistently 404 for at least 6 consecutive checks (9 seconds)
-          if (consecutive404Ref.current >= 2) {
-            setCurrentPin(null);
-            setRoomState(null);
-            setCurrentUserId(null);
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('poker_room_pin');
-              localStorage.removeItem('poker_user_id');
-              window.location.replace('/');
-            }
+          // Resilient network handling: Only consider room permanently dead after 40 consecutive fails (60s)
+          if (consecutive404Ref.current >= 40) {
+            console.warn('Room persistently missing for 60s');
           }
         }
       } catch {
@@ -233,19 +210,9 @@ export function PokerClientApp({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.deleted && !data.room) {
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('poker_room_pin');
-              localStorage.removeItem('poker_user_id');
-              window.location.replace('/');
-            }
-            return;
-          }
-          if (data.success && data.room) {
-            setRoomState(data.room);
-          }
+        const data = await res.json().catch(() => null);
+        if (data?.room) {
+          setRoomState(data.room);
         }
       } catch (err) {
         console.error('Failed to dispatch room action:', err);
@@ -324,6 +291,7 @@ export function PokerClientApp({
         playerName: finalPlayerName,
         playerAvatar: avatar,
         requestedChips: chips,
+        playerId: currentUserId || (typeof window !== 'undefined' ? localStorage.getItem('poker_user_id') : undefined),
       }),
     });
 
@@ -381,31 +349,37 @@ export function PokerClientApp({
 
   // Actions
   const handleFold = useCallback(() => {
-    if (!activeActor) return;
-    sendRoomAction({ type: 'ACTION', playerId: activeActor.id, action: 'fold' });
-  }, [activeActor, sendRoomAction]);
+    const actorId = currentUserId || activeActor?.id;
+    if (!actorId) return;
+    sendRoomAction({ type: 'ACTION', playerId: actorId, action: 'fold' });
+  }, [currentUserId, activeActor, sendRoomAction]);
 
   const handleCheck = useCallback(() => {
-    if (!activeActor) return;
-    sendRoomAction({ type: 'ACTION', playerId: activeActor.id, action: 'check' });
-  }, [activeActor, sendRoomAction]);
+    const actorId = currentUserId || activeActor?.id;
+    if (!actorId) return;
+    sendRoomAction({ type: 'ACTION', playerId: actorId, action: 'check' });
+  }, [currentUserId, activeActor, sendRoomAction]);
 
   const handleCall = useCallback(() => {
-    if (!activeActor) return;
-    sendRoomAction({ type: 'ACTION', playerId: activeActor.id, action: 'call' });
-  }, [activeActor, sendRoomAction]);
+    const actorId = currentUserId || activeActor?.id;
+    if (!actorId) return;
+    sendRoomAction({ type: 'ACTION', playerId: actorId, action: 'call' });
+  }, [currentUserId, activeActor, sendRoomAction]);
 
   const handleConfirmRaise = useCallback(
     (totalAmount: number) => {
-      if (!activeActor) return;
+      const actorId = currentUserId || activeActor?.id;
+      if (!actorId) return;
       sendRoomAction({
         type: 'ACTION',
-        playerId: activeActor.id,
+        playerId: actorId,
         action: 'raise',
         raiseAmount: totalAmount,
+        totalAmount: totalAmount,
       });
+      setIsRaiseModalOpen(false);
     },
-    [activeActor, sendRoomAction]
+    [currentUserId, activeActor, sendRoomAction]
   );
 
   const handleStartHand = useCallback(() => {

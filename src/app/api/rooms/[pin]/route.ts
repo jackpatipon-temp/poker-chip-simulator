@@ -31,7 +31,7 @@ export async function POST(
     const body = await request.json();
 
     if (body.type === 'JOIN') {
-      const result = requestJoinServerRoom(pin, body.playerName, body.playerAvatar, body.requestedChips);
+      const result = requestJoinServerRoom(pin, body.playerName, body.playerAvatar, body.requestedChips, true, body.playerId);
       if (result.error) {
         return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }
@@ -53,10 +53,8 @@ export async function POST(
     if (!updated) {
       const roomStillExists = getServerRoom(pin);
       if (!roomStillExists) {
-        // Room was genuinely deleted because 0 players remain or host closed it
-        return NextResponse.json({ success: true, room: null, deleted: true });
+        return NextResponse.json({ success: false, error: 'Room was closed', room: null }, { status: 404 });
       }
-      // Action was invalid or not player's turn, do NOT delete room or kick players!
       return NextResponse.json({ success: false, error: 'Action could not be executed', room: roomStillExists }, { status: 400 });
     }
     return NextResponse.json({ success: true, room: updated });

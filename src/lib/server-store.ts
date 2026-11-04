@@ -114,15 +114,29 @@ export const requestJoinServerRoom = (
   playerName: string,
   playerAvatar: string,
   requestedChips: number = 1000,
-  autoApprove: boolean = true // Auto-approve by default for smooth LAN play
+  autoApprove: boolean = true,
+  existingPlayerId?: string
 ): { room: RoomState | null; request: JoinRequest | null; player?: Player; error?: string } => {
   const room = roomsMap.get(pin);
   if (!room) {
     return { room: null, request: null, error: 'ไม่พบห้องที่ระบุ PIN นี้' };
   }
 
-  // Check if player with same name is already seated
-  const existingPlayer = room.players.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+  // 1. Check if player already seated by existingPlayerId (reconnection)
+  if (existingPlayerId) {
+    const playerById = room.players.find(p => p.id === existingPlayerId);
+    if (playerById) {
+      if (playerAvatar) playerById.avatarUrl = playerAvatar;
+      if (playerName) playerById.name = playerName;
+      broadcastRoomUpdate(room);
+      return { room, request: null, player: playerById };
+    }
+  }
+
+  // 2. Check if player with same name is already seated
+  const existingPlayer = room.players.find(
+    p => p.name.trim().toLowerCase() === playerName.trim().toLowerCase()
+  );
   if (existingPlayer) {
     if (playerAvatar) {
       existingPlayer.avatarUrl = playerAvatar;
@@ -240,6 +254,7 @@ export const dispatchServerRoomAction = (
     direction?: 'up' | 'down';
     action?: 'fold' | 'check' | 'call' | 'raise' | 'all-in';
     raiseAmount?: number;
+    totalAmount?: number;
     winnerIds?: string[];
     voteTitle?: string;
     voteOptions?: string[];
@@ -254,7 +269,8 @@ export const dispatchServerRoomAction = (
   switch (actionPayload.type) {
     case 'ACTION':
       if (actionPayload.playerId && actionPayload.action) {
-        updated = handlePlayerAction(room, actionPayload.playerId, actionPayload.action, actionPayload.raiseAmount);
+        const raiseVal = actionPayload.totalAmount ?? actionPayload.raiseAmount;
+        updated = handlePlayerAction(room, actionPayload.playerId, actionPayload.action, raiseVal);
       }
       break;
 

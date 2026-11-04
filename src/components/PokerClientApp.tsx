@@ -111,6 +111,7 @@ export function PokerClientApp({
 
   // Polling ref to prevent overlapping requests
   const isPollingRef = useRef(false);
+  const consecutive404Ref = useRef(0);
 
   // Check Disclaimer on mount
   useEffect(() => {
@@ -157,8 +158,9 @@ export function PokerClientApp({
       try {
         const res = await fetch(`/api/rooms/${currentPin}`);
         if (res.ok) {
+          consecutive404Ref.current = 0;
           const data = await res.json();
-          if (data.deleted) {
+          if (data.deleted && !data.room) {
             if (typeof window !== 'undefined') {
               localStorage.removeItem('poker_room_pin');
               localStorage.removeItem('poker_user_id');
@@ -170,13 +172,17 @@ export function PokerClientApp({
             setRoomState(data.room);
           }
         } else if (res.status === 404) {
-          setCurrentPin(null);
-          setRoomState(null);
-          setCurrentUserId(null);
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('poker_room_pin');
-            localStorage.removeItem('poker_user_id');
-            window.location.replace('/');
+          consecutive404Ref.current += 1;
+          // Only redirect if room is persistently 404 for at least 6 consecutive checks (9 seconds)
+          if (consecutive404Ref.current >= 6) {
+            setCurrentPin(null);
+            setRoomState(null);
+            setCurrentUserId(null);
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('poker_room_pin');
+              localStorage.removeItem('poker_user_id');
+              window.location.replace('/');
+            }
           }
         }
       } catch {
@@ -208,7 +214,7 @@ export function PokerClientApp({
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.deleted) {
+          if (data.deleted && !data.room) {
             if (typeof window !== 'undefined') {
               localStorage.removeItem('poker_room_pin');
               localStorage.removeItem('poker_user_id');

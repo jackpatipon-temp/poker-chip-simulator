@@ -51,8 +51,13 @@ export async function POST(
     // Game action dispatch
     const updated = dispatchServerRoomAction(pin, body);
     if (!updated) {
-      // Room was permanently deleted because 0 players remain
-      return NextResponse.json({ success: true, room: null, deleted: true });
+      const roomStillExists = getServerRoom(pin);
+      if (!roomStillExists) {
+        // Room was genuinely deleted because 0 players remain or host closed it
+        return NextResponse.json({ success: true, room: null, deleted: true });
+      }
+      // Action was invalid or not player's turn, do NOT delete room or kick players!
+      return NextResponse.json({ success: false, error: 'Action could not be executed', room: roomStillExists }, { status: 400 });
     }
     return NextResponse.json({ success: true, room: updated });
   } catch (error) {

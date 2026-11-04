@@ -125,6 +125,27 @@ export class Player {
     return actualDeduction;
   }
 
+  /**
+   * Posts forced blind (Small or Big Blind).
+   * Unlike placeBet, posting a forced blind does NOT mark hasActedThisRound = true,
+   * because the player has not yet had their turn to make a decision in Preflop.
+   */
+  public postBlind(amount: number): number {
+    const actualDeduction = Math.min(amount, this._chips);
+    this._chips -= actualDeduction;
+    this._currentBet += actualDeduction;
+    this._totalRoundBet += actualDeduction;
+
+    if (this._chips === 0) {
+      this._status = 'all-in';
+      this._lastAction = 'all-in';
+    }
+
+    this._hasActedThisRound = false;
+    this._isTurn = false;
+    return actualDeduction;
+  }
+
   public recordAction(action: 'check' | 'call' | 'raise' | 'bet' | 'fold' | 'all-in'): void {
     this._lastAction = action;
     this._hasActedThisRound = true;

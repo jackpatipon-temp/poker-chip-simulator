@@ -203,9 +203,9 @@ export class PokerRoom {
     this._players[sbIdx].setBlinds(true, false);
     this._players[bbIdx].setBlinds(false, true);
 
-    // Post Blinds
-    const sbAmount = this._players[sbIdx].placeBet(this._smallBlind);
-    const bbAmount = this._players[bbIdx].placeBet(this._bigBlind);
+    // Post Blinds (forced bets: hasActedThisRound remains false)
+    const sbAmount = this._players[sbIdx].postBlind(this._smallBlind);
+    const bbAmount = this._players[bbIdx].postBlind(this._bigBlind);
 
     this._pot.reset();
     this._pot.addChips(sbAmount + bbAmount);

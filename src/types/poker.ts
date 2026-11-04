@@ -17,6 +17,7 @@ export interface Player {
   isBigBlind: boolean;
   isTurn: boolean;
   lastAction?: 'check' | 'call' | 'raise' | 'bet' | 'fold' | 'all-in';
+  lastBetAmount?: number;
   isHost: boolean;
   isApproved: boolean;
   hasActedThisRound: boolean;

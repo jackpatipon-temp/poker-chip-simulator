@@ -17,6 +17,13 @@ interface PokerTableProps {
   onOpenSeating?: () => void;
 }
 
+interface FlyingCoin {
+  id: string;
+  startX: number;
+  startY: number;
+  delay: number;
+}
+
 export const PokerTable: React.FC<PokerTableProps> = ({
   pot,
   street,
@@ -28,12 +35,60 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   onOpenSeating,
 }) => {
   const [copied, setCopied] = React.useState(false);
+  const [flyingCoins, setFlyingCoins] = React.useState<FlyingCoin[]>([]);
+  const prevBetsRef = React.useRef<Record<string, number>>({});
 
   // Reorder players so current user appears at the bottom
   const currentIdx = players.findIndex(p => p.id === currentUserId);
   const orderedPlayers = currentIdx >= 0
     ? [...players.slice(currentIdx), ...players.slice(0, currentIdx)]
     : players;
+
+  // Track bet changes to trigger rapid shooting coin stream towards center pot
+  React.useEffect(() => {
+    const newCoins: FlyingCoin[] = [];
+    const currentBets: Record<string, number> = {};
+
+    orderedPlayers.forEach((player, idx) => {
+      const committed = player.totalRoundBet > 0 ? player.totalRoundBet : player.currentBet;
+      currentBets[player.id] = committed;
+
+      const prev = prevBetsRef.current[player.id];
+      if (prev !== undefined && committed > prev && committed > 0) {
+        let angle = Math.PI / 2;
+        if (orderedPlayers.length === 2) {
+          angle = idx === 0 ? Math.PI / 2 : (3 * Math.PI) / 2;
+        } else {
+          angle = (2 * Math.PI * idx) / orderedPlayers.length + Math.PI / 2;
+        }
+        const rx = 35;
+        const ry = 39;
+        const startX = 50 + rx * Math.cos(angle);
+        const startY = 50 + ry * Math.sin(angle);
+
+        // Spawn a stream of 7 rapid coins
+        for (let i = 0; i < 7; i++) {
+          newCoins.push({
+            id: `${player.id}-${Date.now()}-${i}`,
+            startX,
+            startY,
+            delay: i * 0.05,
+          });
+        }
+        sound.playChip();
+      }
+    });
+
+    prevBetsRef.current = currentBets;
+
+    if (newCoins.length > 0) {
+      setFlyingCoins(prev => [...prev, ...newCoins]);
+      const timer = setTimeout(() => {
+        setFlyingCoins(prev => prev.filter(c => !newCoins.some(nc => nc.id === c.id)));
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [orderedPlayers]);
 
   // Active board card counts for physical card tracking indicator
   const cardStates = {
@@ -217,6 +272,27 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             </div>
           )}
         </div>
+
+        {/* Rapid Coin Stream Layer */}
+        {flyingCoins.length > 0 && (
+          <div className="coin-stream-layer" aria-hidden="true">
+            {flyingCoins.map(coin => (
+              <div
+                key={coin.id}
+                className="stream-coin"
+                style={
+                  {
+                    '--start-x': `${coin.startX}%`,
+                    '--start-y': `${coin.startY}%`,
+                    animationDelay: `${coin.delay}s`,
+                  } as React.CSSProperties
+                }
+              >
+                🪙
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Players arranged around the table */}
         {orderedPlayers.map((player, idx) => (

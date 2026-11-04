@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { X, Undo2, Check, UserPlus, Vote as VoteIcon, Users, Sliders, ArrowUp, ArrowDown, Dices, Coffee } from 'lucide-react';
+import { X, Undo2, Check, UserPlus, Vote as VoteIcon, Users, Sliders, ArrowUp, ArrowDown, Dices, Coffee, UserMinus } from 'lucide-react';
 import { RoomState, JoinRequest } from '@/types/poker';
 import { sound, triggerHaptic } from '@/lib/sound';
 
@@ -20,6 +20,7 @@ interface AdminPanelProps {
   onRandomizeDealer?: () => void;
   onMoveSeat?: (playerId: string, direction: 'up' | 'down') => void;
   onToggleAfk?: (playerId: string) => void;
+  onKickPlayer?: (playerId: string) => void;
   initialTab?: 'seating' | 'requests' | 'vote' | 'game';
 }
 
@@ -37,6 +38,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onRandomizeDealer,
   onMoveSeat,
   onToggleAfk,
+  onKickPlayer,
   initialTab = 'seating',
 }) => {
   const [chipInputs, setChipInputs] = useState<Record<string, number>>({});
@@ -355,6 +357,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           title={isAfk ? 'ปลดสถานะพักเบรก (กลับเข้าโต๊ะ)' : 'ตั้งสถานะพักเบรก/เข้าห้องน้ำ'}
                         >
                           <Coffee size={14} />
+                        </button>
+                      )}
+
+                      {/* Kick player button (only for non-host players) */}
+                      {!p.isHost && onKickPlayer && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderColor: 'rgba(239, 68, 68, 0.4)',
+                            color: '#ef4444',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                          }}
+                          onClick={() => {
+                            if (confirm(`คุณต้องการเตะผู้เล่น "${p.name}" ออกจากโต๊ะหรือไม่?`)) {
+                              sound.playFold();
+                              triggerHaptic(30);
+                              onKickPlayer(p.id);
+                            }
+                          }}
+                          title={`เตะ ${p.name} ออกจากโต๊ะ`}
+                        >
+                          <UserMinus size={14} />
                         </button>
                       )}
                     </div>

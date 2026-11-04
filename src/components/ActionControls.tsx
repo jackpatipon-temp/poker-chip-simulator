@@ -12,6 +12,7 @@ interface ActionControlsProps {
   currentHighestBet: number;
   minRaise: number;
   isMyTurn: boolean;
+  isHandStarted?: boolean;
   onFold: () => void;
   onCheck: () => void;
   onCall: () => void;
@@ -24,6 +25,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   currentHighestBet,
   minRaise,
   isMyTurn,
+  isHandStarted = true,
   onFold,
   onCheck,
   onCall,
@@ -81,7 +83,14 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {isMyTurn ? (
+          {!isHandStarted ? (
+            <>
+              <Clock size={15} color="#fbbf24" />
+              <span style={{ color: '#fbbf24', fontSize: '0.82rem', fontWeight: 700 }}>
+                ⏳ รอ Host กด &apos;แจกชิป &amp; เริ่ม Hand&apos; บนโต๊ะเพื่อเริ่มเกม
+              </span>
+            </>
+          ) : isMyTurn ? (
             <>
               <CheckCircle2 size={16} color="#10b981" />
               <span style={{ color: '#6ee7b7', fontWeight: 800 }}>🎯 ถึงตาคุณแล้ว! เลือกลงเดิมพัน</span>
@@ -109,7 +118,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             type="button"
             className="action-btn fold"
             onClick={handleFold}
-            disabled={!isMyTurn || player.status !== 'active'}
+            disabled={!isHandStarted || !isMyTurn || player.status !== 'active'}
           >
             <span>Fold</span>
           </button>
@@ -127,7 +136,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
                 type="button"
                 className="action-btn check"
                 onClick={handleCheck}
-                disabled={!isMyTurn || player.status !== 'active'}
+                disabled={!isHandStarted || !isMyTurn || player.status !== 'active'}
               >
                 <span>Check</span>
                 <span className="btn-sub-text">ฟรี</span>
@@ -143,7 +152,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
                 type="button"
                 className="action-btn call"
                 onClick={handleCall}
-                disabled={!isMyTurn || player.status !== 'active' || !canCall}
+                disabled={!isHandStarted || !isMyTurn || player.status !== 'active' || !canCall}
               >
                 <span>Call</span>
                 <span className="btn-sub-text">
@@ -164,7 +173,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             type="button"
             className="action-btn raise"
             onClick={handleRaiseClick}
-            disabled={!isMyTurn || player.status !== 'active' || !canRaise}
+            disabled={!isHandStarted || !isMyTurn || player.status !== 'active' || !canRaise}
           >
             <span>Raise</span>
             <span className="btn-sub-text">

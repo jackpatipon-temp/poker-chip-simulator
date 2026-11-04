@@ -13,6 +13,7 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { DisclaimerModal } from '@/components/DisclaimerModal';
 import { LobbyView } from '@/components/LobbyView';
 import { Check, X, Loader2 } from 'lucide-react';
+import { sound, triggerHaptic } from '@/lib/sound';
 import {
   supabase,
   isSupabaseConfigured,
@@ -339,6 +340,17 @@ export function PokerClientApp({
   const isMyTurn = activeActor?.id === currentUserId;
   const isWaitingForApproval = roomState?.pendingRequests.some((r) => r.userId === currentUserId);
 
+  // Turn Notification: Vibrate & Sound Alert when it becomes user's turn
+  const prevIsMyTurnRef = useRef(false);
+  useEffect(() => {
+    const isHandActive = Boolean(roomState?.isFirstHandStarted && roomState?.street !== 'showdown');
+    if (isMyTurn && !prevIsMyTurnRef.current && isHandActive) {
+      sound.playTurnNotice();
+      triggerHaptic([140, 70, 160]);
+    }
+    prevIsMyTurnRef.current = Boolean(isMyTurn && isHandActive);
+  }, [isMyTurn, roomState?.isFirstHandStarted, roomState?.street]);
+
   // Actions
   const handleFold = useCallback(() => {
     if (!activeActor) return;
@@ -454,13 +466,42 @@ export function PokerClientApp({
     sendRoomAction({ type: 'TOGGLE_AFK', playerId: currentUserId });
   }, [currentUserId, sendRoomAction]);
 
-  const handleLeaveRoom = useCallback(() => {
+  const handleKickPlayer = useCallback(
+    (targetPlayerId: string) => {
+      sendRoomAction({ type: 'KICK_PLAYER', targetPlayerId });
+    },
+    [sendRoomAction]
+  );
+
+  // Send leave beacon when user closes browser tab or navigates away
+  useEffect(() => {
+    if (!currentPin || !currentUserId) return;
+    const handleBeforeUnload = () => {
+      const payload = JSON.stringify({ type: 'LEAVE', playerId: currentUserId });
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        navigator.sendBeacon(`/api/rooms/${currentPin}`, new Blob([payload], { type: 'application/json' }));
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
+  }, [currentPin, currentUserId]);
+
+  const handleLeaveRoom = useCallback(async () => {
     if (currentUserId && currentPin) {
       try {
-        fetch(`/api/rooms/${currentPin}`, {
+        const payload = JSON.stringify({ type: 'LEAVE', playerId: currentUserId });
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+          navigator.sendBeacon(`/api/rooms/${currentPin}`, new Blob([payload], { type: 'application/json' }));
+        }
+        await fetch(`/api/rooms/${currentPin}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'LEAVE', playerId: currentUserId }),
+          body: payload,
+          keepalive: true,
         }).catch(() => {});
       } catch {}
     }
@@ -666,6 +707,7 @@ export function PokerClientApp({
             currentHighestBet={roomState.currentHighestBet}
             minRaise={roomState.minRaise}
             isMyTurn={isMyTurn}
+            isHandStarted={Boolean(roomState.isFirstHandStarted && roomState.street !== 'showdown')}
             onFold={handleFold}
             onCheck={handleCheck}
             onCall={handleCall}
@@ -711,6 +753,7 @@ export function PokerClientApp({
             onRandomizeDealer={handleRandomizeDealer}
             onMoveSeat={handleMoveSeat}
             onToggleAfk={handleToggleAfk}
+            onKickPlayer={handleKickPlayer}
           />
 
           {/* Interactive Vote Modal */}

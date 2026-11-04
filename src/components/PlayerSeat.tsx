@@ -59,16 +59,67 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
         top: `${y}%`,
       }}
     >
-      {/* Current Bet Chip placed on table towards center */}
-      {player.currentBet > 0 && (
+      {/* 2-Block Bet Display: Total Bet (Block 1) + Recent Bet (Block 2) */}
+      {(player.currentBet > 0 || player.totalRoundBet > 0) && (
         <div
-          className="seat-bet-chip"
+          className="seat-bet-container"
           style={{
+            position: 'absolute',
             transform: `translate(${betOffsetX}px, ${betOffsetY}px)`,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+            zIndex: 15,
+            pointerEvents: 'none',
           }}
         >
-          <span style={{ fontSize: '0.62rem' }}>🪙</span>
-          <span>{player.currentBet}</span>
+          {/* Block 1: ยอดรวมที่ลงเดิมพันใน Hand นี้ */}
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.95) 0%, rgba(217, 119, 6, 0.95) 100%)',
+              color: '#000000',
+              fontWeight: 800,
+              fontSize: '0.72rem',
+              padding: '2px 8px',
+              borderRadius: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+              border: '1px solid rgba(255, 255, 255, 0.4)',
+              whiteSpace: 'nowrap',
+            }}
+            title="ยอดรวมที่ลงเดิมพันใน Hand นี้"
+          >
+            <span style={{ fontSize: '0.65rem' }}>🪙</span>
+            <span style={{ fontSize: '0.62rem', opacity: 0.85, fontWeight: 700 }}>รวม:</span>
+            <span>{(player.totalRoundBet || player.currentBet).toLocaleString()}</span>
+          </div>
+
+          {/* Block 2: ยอดที่ลงล่าสุดใน Action นี้ */}
+          {player.lastBetAmount && player.lastBetAmount > 0 && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.95) 0%, rgba(5, 150, 105, 0.95) 100%)',
+                color: '#ffffff',
+                fontWeight: 800,
+                fontSize: '0.66rem',
+                padding: '1px 6px',
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                boxShadow: '0 1px 6px rgba(0,0,0,0.4)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                whiteSpace: 'nowrap',
+              }}
+              title="ยอดที่ลงเดิมพันล่าสุด"
+            >
+              <span style={{ fontSize: '0.58rem', opacity: 0.9 }}>ล่าสุด:</span>
+              <span>+{player.lastBetAmount.toLocaleString()}</span>
+            </div>
+          )}
         </div>
       )}
 

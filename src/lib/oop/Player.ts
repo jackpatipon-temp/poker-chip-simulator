@@ -1,19 +1,19 @@
-import { PlayerStatus, Player as IPlayer } from '@/types/poker';
+import { Player as IPlayer, PlayerStatus } from '@/types/poker';
 
 /**
- * OOP Class: Player
- * Represents an individual poker player participating in a game session.
- * Demonstrates Encapsulation by shielding sensitive internal properties
- * behind private fields and validated state mutation methods.
+ * OOP Domain Model: Player
+ * Encapsulates player stack, betting state, table position, and gameplay actions.
+ * Protects invariants via private state with validated mutator methods.
  */
 export class Player {
-  private _id: string;
-  private _name: string;
+  private readonly _id: string;
+  private readonly _name: string;
   private _avatarUrl: string;
-  private _email?: string;
+  private readonly _email?: string;
   private _chips: number;
   private _currentBet: number;
   private _totalRoundBet: number;
+  private _lastBetAmount?: number;
   private _status: PlayerStatus;
   private _seatIndex: number;
   private _isDealer: boolean;
@@ -41,6 +41,7 @@ export class Player {
     this._chips = Math.max(0, chips);
     this._currentBet = 0;
     this._totalRoundBet = 0;
+    this._lastBetAmount = undefined;
     this._status = 'active';
     this._seatIndex = seatIndex;
     this._isDealer = false;
@@ -60,6 +61,7 @@ export class Player {
   public get chips(): number { return this._chips; }
   public get currentBet(): number { return this._currentBet; }
   public get totalRoundBet(): number { return this._totalRoundBet; }
+  public get lastBetAmount(): number | undefined { return this._lastBetAmount; }
   public get status(): PlayerStatus { return this._status; }
   public get seatIndex(): number { return this._seatIndex; }
   public get isDealer(): boolean { return this._isDealer; }
@@ -71,9 +73,9 @@ export class Player {
   public get isApproved(): boolean { return this._isApproved; }
   public get hasActedThisRound(): boolean { return this._hasActedThisRound; }
 
-  // --- Setters / Mutators (Encapsulation & Business Logic) ---
-  public setSeatIndex(idx: number): void {
-    this._seatIndex = idx;
+  // --- Business Mutators ---
+  public setSeatIndex(index: number): void {
+    this._seatIndex = index;
   }
 
   public setDealer(isDealer: boolean): void {
@@ -114,6 +116,7 @@ export class Player {
     this._chips -= actualDeduction;
     this._currentBet += actualDeduction;
     this._totalRoundBet += actualDeduction;
+    this._lastBetAmount = actualDeduction;
 
     if (this._chips === 0) {
       this._status = 'all-in';
@@ -135,6 +138,7 @@ export class Player {
     this._chips -= actualDeduction;
     this._currentBet += actualDeduction;
     this._totalRoundBet += actualDeduction;
+    this._lastBetAmount = actualDeduction;
 
     if (this._chips === 0) {
       this._status = 'all-in';
@@ -175,6 +179,7 @@ export class Player {
   public resetHand(dealerIndex: number): void {
     this._currentBet = 0;
     this._totalRoundBet = 0;
+    this._lastBetAmount = undefined;
     this._isDealer = this._seatIndex === dealerIndex;
     this._isSmallBlind = false;
     this._isBigBlind = false;
@@ -199,6 +204,7 @@ export class Player {
       chips: this._chips,
       currentBet: this._currentBet,
       totalRoundBet: this._totalRoundBet,
+      lastBetAmount: this._lastBetAmount,
       status: this._status,
       seatIndex: this._seatIndex,
       isDealer: this._isDealer,
@@ -227,6 +233,7 @@ export class Player {
     );
     p._currentBet = data.currentBet;
     p._totalRoundBet = data.totalRoundBet;
+    p._lastBetAmount = data.lastBetAmount;
     p._status = data.status;
     p._isDealer = data.isDealer;
     p._isSmallBlind = data.isSmallBlind;
@@ -265,4 +272,3 @@ export class HostPlayer extends Player {
     return this._adminPermissions.includes(permission);
   }
 }
-

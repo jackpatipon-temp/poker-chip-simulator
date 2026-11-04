@@ -230,6 +230,7 @@ export const dispatchServerRoomAction = (
       | 'VOTE_CLOSE'
       | 'TOGGLE_AFK'
       | 'LEAVE'
+      | 'KICK_PLAYER'
       | 'SET_DEALER'
       | 'RANDOMIZE_DEALER'
       | 'SWAP_SEATS'
@@ -309,10 +310,27 @@ export const dispatchServerRoomAction = (
     case 'LEAVE':
       if (actionPayload.playerId) {
         updated.players = updated.players.filter(p => p.id !== actionPayload.playerId);
+        // Re-index remaining player seats
+        updated.players = updated.players.map((p, idx) => ({ ...p, seatIndex: idx }));
         // Transfer host if host left and other players remain
         if (updated.players.length > 0 && !updated.players.some(p => p.id === updated.hostId)) {
           updated.hostId = updated.players[0].id;
           updated.players[0].isHost = true;
+        }
+        if (updated.players.length > 0) {
+          updated.dealerIndex = updated.dealerIndex % updated.players.length;
+          updated.activePlayerIndex = updated.activePlayerIndex % updated.players.length;
+        }
+      }
+      break;
+
+    case 'KICK_PLAYER':
+      if (actionPayload.targetPlayerId) {
+        updated.players = updated.players.filter(p => p.id !== actionPayload.targetPlayerId);
+        updated.players = updated.players.map((p, idx) => ({ ...p, seatIndex: idx }));
+        if (updated.players.length > 0) {
+          updated.dealerIndex = updated.dealerIndex % updated.players.length;
+          updated.activePlayerIndex = updated.activePlayerIndex % updated.players.length;
         }
       }
       break;

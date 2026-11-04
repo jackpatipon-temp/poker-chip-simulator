@@ -173,27 +173,33 @@ class SoundFX {
     }
   }
 
-  // Turn alert beep
+  // Turn alert chime (pleasant dual-tone chime for player's turn)
   public playTurnNotice() {
     if (!this.enabled) return;
     try {
       const ctx = this.getContext();
       if (!ctx) return;
 
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const playTone = (freq: number, delayMs: number, duration: number) => {
+        setTimeout(() => {
+          try {
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+          } catch {}
+        }, delayMs);
+      };
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      osc.stop(ctx.currentTime + 0.15);
+      playTone(587.33, 0, 0.18); // D5
+      playTone(880.00, 100, 0.28); // A5
     } catch {
       // Ignore audio error
     }
@@ -202,7 +208,7 @@ class SoundFX {
 
 export const sound = new SoundFX();
 
-export const triggerHaptic = (ms: number = 25) => {
+export const triggerHaptic = (ms: number | number[] = 25) => {
   if (typeof window !== 'undefined' && 'vibrate' in navigator) {
     try {
       navigator.vibrate(ms);

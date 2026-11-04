@@ -1,6 +1,6 @@
 import { createClient, User } from '@supabase/supabase-js';
 
-// Sanitize Supabase URL (strip /rest/v1 and trailing slashes if accidentally entered in Vercel)
+// Sanitize Supabase URL (strip /rest/v1 and trailing slashes if accidentally entered in Render / Vercel)
 const rawUrl = (
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
@@ -58,11 +58,15 @@ export const extractGoogleProfile = (user: User | null): GoogleUserProfile | nul
 
 export const signInWithGoogle = async (redirectPath: string = '/'): Promise<void> => {
   if (!isSupabaseConfigured()) {
-    console.warn('Supabase is not configured.');
+    if (typeof window !== 'undefined') {
+      alert(
+        '⚠️ ยังไม่ได้ตั้งค่า Environment Variables บน Render!\n\nกรุณาไปที่ Render Dashboard -> แถบ Environment แล้วเพิ่มตัวแปร:\n1. NEXT_PUBLIC_SUPABASE_URL\n2. NEXT_PUBLIC_SUPABASE_ANON_KEY\n\nจากนั้นกด Manual Deploy -> Clear build cache & deploy ครับ'
+      );
+    }
     return;
   }
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  await supabase.auth.signInWithOAuth({
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: `${origin}${redirectPath}`,
@@ -72,6 +76,12 @@ export const signInWithGoogle = async (redirectPath: string = '/'): Promise<void
       },
     },
   });
+
+  if (error && typeof window !== 'undefined') {
+    alert(
+      `เข้าสู่ระบบไม่สำเร็จ: ${error.message}\n\nกรุณาตรวจสอบว่าได้เพิ่ม URL ของ Render ใน Supabase -> Authentication -> URL Configuration หรือยังครับ`
+    );
+  }
 };
 
 export const signOutGoogle = async (): Promise<void> => {

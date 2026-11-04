@@ -153,25 +153,52 @@ export class PokerRoom {
    * Dealer rotation: clockwise to the next approved player with chips.
    */
   public rotateDealer(): void {
+    const total = this._players.length;
+    if (total === 0) return;
+
     if (this._isFirstHandStarted) {
-      this._dealerIndex = (this._dealerIndex + 1) % this._players.length;
-      while (
-        !this._players[this._dealerIndex] ||
-        !this._players[this._dealerIndex].isApproved ||
-        this._players[this._dealerIndex].status === 'sitting-out' ||
-        this._players[this._dealerIndex].chips <= 0
-      ) {
-        this._dealerIndex = (this._dealerIndex + 1) % this._players.length;
+      let nextD = (this._dealerIndex + 1) % total;
+      let attempts = 0;
+      while (attempts < total) {
+        const p = this._players[nextD];
+        if (p && p.isApproved && p.status !== 'sitting-out' && p.chips > 0) {
+          break;
+        }
+        nextD = (nextD + 1) % total;
+        attempts++;
       }
+      this._dealerIndex = nextD;
     } else {
       this._isFirstHandStarted = true;
       const eligible = this.getApprovedPlayersWithChips();
       if (!this._players[this._dealerIndex] || this._players[this._dealerIndex].chips <= 0) {
         if (eligible.length > 0) {
-          this._dealerIndex = eligible[0].seatIndex;
+          const eligibleIdx = this._players.indexOf(eligible[0]);
+          this._dealerIndex = eligibleIdx >= 0 ? eligibleIdx : 0;
+        } else {
+          this._dealerIndex = 0;
         }
       }
     }
+  }
+
+  /**
+   * Strictly enforces that ONLY ONE player has isTurn = true at any moment.
+   * All other players are forced to false to prevent turn desync.
+   */
+  public setActiveTurnIndex(index: number): void {
+    const total = this._players.length;
+    if (total === 0) {
+      this._activePlayerIndex = 0;
+      return;
+    }
+    const validIndex = ((index % total) + total) % total;
+    this._activePlayerIndex = validIndex;
+
+    const isShowdown = this._street === 'showdown';
+    this._players.forEach((p, idx) => {
+      p.setTurn(!isShowdown && idx === validIndex && p.status === 'active');
+    });
   }
 
   /**
@@ -216,8 +243,7 @@ export class PokerRoom {
 
     // Preflop first to act
     const firstToAct = eligiblePlayers.length === 2 ? sbIdx : this.getNextActiveIndex(bbIdx);
-    this._activePlayerIndex = firstToAct;
-    this._players[firstToAct].setTurn(true);
+    this.setActiveTurnIndex(firstToAct);
 
     return true;
   }
@@ -280,15 +306,15 @@ export class PokerRoom {
 
     // First active left of dealer button
     const nextActor = this.getNextActiveIndex(this._dealerIndex);
-    this._activePlayerIndex = nextActor;
-    this._players[nextActor].setTurn(true);
+    this.setActiveTurnIndex(nextActor);
   }
 
   /**
    * Executes a polymorphic GameAction command.
    */
   public dispatchAction(action: GameAction): void {
-    if (this._players[this._activePlayerIndex]?.id !== action.playerId) {
+    const activePlayer = this._players[this._activePlayerIndex];
+    if (!activePlayer || activePlayer.id !== action.playerId) {
       return;
     }
 
@@ -300,9 +326,10 @@ export class PokerRoom {
         this.progressToNextStreet();
       } else {
         const nextIdx = this.getNextActiveIndex(this._activePlayerIndex);
-        this._activePlayerIndex = nextIdx;
-        this._players[nextIdx].setTurn(true);
+        this.setActiveTurnIndex(nextIdx);
       }
+    } else {
+      this._players.forEach(p => p.setTurn(false));
     }
   }
 

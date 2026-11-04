@@ -57,6 +57,7 @@ export function PokerClientApp({
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
 
   // Sound and Haptic preferences
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -169,7 +170,10 @@ export function PokerClientApp({
       if (isPollingRef.current) return;
       isPollingRef.current = true;
       try {
-        const res = await fetch(`/api/rooms/${currentPin}`);
+        const res = await fetch(`/api/rooms/${currentPin}?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        });
         if (res.ok) {
           consecutive404Ref.current = 0;
           const data = await res.json();
@@ -190,7 +194,7 @@ export function PokerClientApp({
       }
     };
 
-    const interval = setInterval(fetchLatestRoomState, 1500);
+    const interval = setInterval(fetchLatestRoomState, 800);
 
     return () => {
       if (eventSource) {
@@ -204,10 +208,15 @@ export function PokerClientApp({
   const sendRoomAction = useCallback(
     async (payload: Record<string, unknown>) => {
       if (!currentPin) return;
+      setIsSubmittingAction(true);
       try {
-        const res = await fetch(`/api/rooms/${currentPin}`, {
+        const res = await fetch(`/api/rooms/${currentPin}?t=${Date.now()}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+          },
+          cache: 'no-store',
           body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => null);
@@ -216,6 +225,8 @@ export function PokerClientApp({
         }
       } catch (err) {
         console.error('Failed to dispatch room action:', err);
+      } finally {
+        setIsSubmittingAction(false);
       }
     },
     [currentPin]
@@ -690,6 +701,7 @@ export function PokerClientApp({
             minRaise={roomState.minRaise}
             isMyTurn={isMyTurn}
             isHandStarted={Boolean(roomState.isFirstHandStarted && roomState.street !== 'showdown')}
+            isSubmitting={isSubmittingAction}
             onFold={handleFold}
             onCheck={handleCheck}
             onCall={handleCall}

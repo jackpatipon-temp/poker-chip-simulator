@@ -13,6 +13,7 @@ interface ActionControlsProps {
   minRaise: number;
   isMyTurn: boolean;
   isHandStarted?: boolean;
+  isSubmitting?: boolean;
   onFold: () => void;
   onCheck: () => void;
   onCall: () => void;
@@ -26,6 +27,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   minRaise,
   isMyTurn,
   isHandStarted = true,
+  isSubmitting = false,
   onFold,
   onCheck,
   onCall,
@@ -118,7 +120,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             type="button"
             className="action-btn fold"
             onClick={handleFold}
-            disabled={!isHandStarted || !isMyTurn || player.status !== 'active'}
+            disabled={!isHandStarted || !isMyTurn || isSubmitting || player.status !== 'active'}
           >
             <span>Fold</span>
           </button>
@@ -136,7 +138,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
                 type="button"
                 className="action-btn check"
                 onClick={handleCheck}
-                disabled={!isHandStarted || !isMyTurn || player.status !== 'active'}
+                disabled={!isHandStarted || !isMyTurn || isSubmitting || player.status !== 'active'}
               >
                 <span>Check</span>
                 <span className="btn-sub-text">ฟรี</span>
@@ -152,7 +154,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
                 type="button"
                 className="action-btn call"
                 onClick={handleCall}
-                disabled={!isHandStarted || !isMyTurn || player.status !== 'active' || !canCall}
+                disabled={!isHandStarted || !isMyTurn || isSubmitting || player.status !== 'active' || !canCall}
               >
                 <span>Call</span>
                 <span className="btn-sub-text">
@@ -173,7 +175,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             type="button"
             className="action-btn raise"
             onClick={handleRaiseClick}
-            disabled={!isHandStarted || !isMyTurn || player.status !== 'active' || !canRaise}
+            disabled={!isHandStarted || !isMyTurn || isSubmitting || player.status !== 'active' || !canRaise}
           >
             <span>Raise</span>
             <span className="btn-sub-text">

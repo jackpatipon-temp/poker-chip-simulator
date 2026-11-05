@@ -159,6 +159,7 @@ export class Player {
   public fold(): void {
     this._status = 'folded';
     this._lastAction = 'fold';
+    this._lastBetAmount = undefined;
     this._hasActedThisRound = true;
     this._isTurn = false;
   }
@@ -171,9 +172,14 @@ export class Player {
 
   public resetStreetBet(): void {
     this._currentBet = 0;
+    this._lastBetAmount = undefined;
     this._hasActedThisRound = false;
     this._lastAction = undefined;
     this._isTurn = false;
+  }
+
+  public reopenAction(): void {
+    this._hasActedThisRound = false;
   }
 
   public resetHand(dealerIndex: number): void {

@@ -165,7 +165,7 @@ export class PokerRoom {
   public reopenBettingForOthers(actingPlayerId: string): void {
     this._players.forEach(p => {
       if (p.id !== actingPlayerId && p.status === 'active') {
-        p.resetStreetBet();
+        p.reopenAction();
       }
     });
   }

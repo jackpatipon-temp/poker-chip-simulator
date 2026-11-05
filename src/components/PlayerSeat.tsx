@@ -44,9 +44,11 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
   const x = 50 + rx * Math.cos(angle);
   const y = 50 + ry * Math.sin(angle);
 
-  // Vector offset for bet chip towards table center (50%, 50%)
-  const betOffsetX = (50 - x) * 0.42;
-  const betOffsetY = (50 - y) * 0.42;
+  // Distance from seat center to bet chip on the felt (outside the seat card towards center pot)
+  // Horizontal clearance: card half-width (~54px) + margin = 66px
+  // Vertical clearance: card half-height + action badge (~38px) + margin = 52px
+  const betOffsetX = -Math.cos(angle) * 66;
+  const betOffsetY = -Math.sin(angle) * 52;
 
   const isSittingOut = player.status === 'sitting-out';
   const isFolded = player.status === 'folded';
@@ -59,67 +61,35 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
         top: `${y}%`,
       }}
     >
-      {/* 2-Block Bet Display: Total Bet (Block 1) + Recent Bet (Block 2) */}
-      {(player.currentBet > 0 || player.totalRoundBet > 0) && (
+      {/* Latest Bet Badge (ยอดที่ลงล่าสุดเท่านั้น - วางบนผ้าสักหลาด ไม่บังชื่อและยอดคงเหลือ) */}
+      {!isFolded && Boolean(player.lastBetAmount && player.lastBetAmount > 0) && (
         <div
-          className="seat-bet-container"
+          className="seat-bet-badge"
           style={{
             position: 'absolute',
-            transform: `translate(${betOffsetX}px, ${betOffsetY}px)`,
+            left: '50%',
+            top: '50%',
+            transform: `translate(calc(-50% + ${betOffsetX}px), calc(-50% + ${betOffsetY}px))`,
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            gap: 2,
-            zIndex: 15,
+            gap: 3,
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.96) 0%, rgba(217, 119, 6, 0.96) 100%)',
+            color: '#000000',
+            fontWeight: 800,
+            fontSize: '0.74rem',
+            fontFamily: 'var(--font-mono)',
+            padding: '2px 7px',
+            borderRadius: 12,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.5), 0 0 6px rgba(245, 158, 11, 0.4)',
+            border: '1.5px solid rgba(255, 255, 255, 0.6)',
+            whiteSpace: 'nowrap',
+            zIndex: 16,
             pointerEvents: 'none',
           }}
+          title={`ยอดที่ลงล่าสุด: ${player.lastBetAmount?.toLocaleString()} ชิป`}
         >
-          {/* Block 1: ยอดรวมที่ลงเดิมพันใน Hand นี้ */}
-          <div
-            style={{
-              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.95) 0%, rgba(217, 119, 6, 0.95) 100%)',
-              color: '#000000',
-              fontWeight: 800,
-              fontSize: '0.72rem',
-              padding: '2px 8px',
-              borderRadius: 12,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-              border: '1px solid rgba(255, 255, 255, 0.4)',
-              whiteSpace: 'nowrap',
-            }}
-            title="ยอดรวมที่ลงเดิมพันใน Hand นี้"
-          >
-            <span style={{ fontSize: '0.65rem' }}>🪙</span>
-            <span style={{ fontSize: '0.62rem', opacity: 0.85, fontWeight: 700 }}>รวม:</span>
-            <span>{(player.totalRoundBet || player.currentBet).toLocaleString()}</span>
-          </div>
-
-          {/* Block 2: ยอดที่ลงล่าสุดใน Action นี้ */}
-          {player.lastBetAmount && player.lastBetAmount > 0 && (
-            <div
-              style={{
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.95) 0%, rgba(5, 150, 105, 0.95) 100%)',
-                color: '#ffffff',
-                fontWeight: 800,
-                fontSize: '0.66rem',
-                padding: '1px 6px',
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                boxShadow: '0 1px 6px rgba(0,0,0,0.4)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                whiteSpace: 'nowrap',
-              }}
-              title="ยอดที่ลงเดิมพันล่าสุด"
-            >
-              <span style={{ fontSize: '0.58rem', opacity: 0.9 }}>ล่าสุด:</span>
-              <span>+{player.lastBetAmount.toLocaleString()}</span>
-            </div>
-          )}
+          <span style={{ fontSize: '0.66rem' }}>🪙</span>
+          <span>{player.lastBetAmount?.toLocaleString()}</span>
         </div>
       )}
 

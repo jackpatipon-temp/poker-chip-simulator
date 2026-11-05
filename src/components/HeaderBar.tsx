@@ -104,7 +104,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <span className="street-badge">{street}</span>
         <span className="blinds-pill">
           {bigBlind}/{smallBlind} {ante > 0 ? `• Ante: ${ante}` : ''}
         </span>

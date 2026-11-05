@@ -135,6 +135,11 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                   </div>
                 ))}
               </div>
+
+              {/* Street text placed directly underneath the community cards */}
+              <div className="table-street-badge" title={`Street ปัจจุบัน: ${street}`}>
+                <span>{street.toUpperCase()}</span>
+              </div>
             </>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '4px 8px' }}>

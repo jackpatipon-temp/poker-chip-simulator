@@ -14,6 +14,7 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { DisclaimerModal } from '@/components/DisclaimerModal';
 import { LobbyView } from '@/components/LobbyView';
 import { HostTransferModal } from '@/components/HostTransferModal';
+import { TurnEdgeWaveOverlay } from '@/components/TurnEdgeWaveOverlay';
 import { subscribeToSupabaseRoomRealtime } from '@/lib/supabase-room';
 import { createRoom, joinRoom, dispatchRoomAction, fetchRoomState } from '@/lib/room-service';
 import { handlePlayerAction, awardPotToWinners, startNewHand, setRoomNextBlinds } from '@/lib/poker-engine';
@@ -331,6 +332,7 @@ export function PokerClientApp({
   const isHost = currentUserId === roomState?.hostId;
   const activeActor = roomState ? roomState.players[roomState.activePlayerIndex] : null;
   const isMyTurn = activeActor?.id === currentUserId;
+  const isHandActive = Boolean(roomState?.isFirstHandStarted && roomState?.street !== 'showdown');
   const isWaitingForApproval = roomState?.pendingRequests.some((r) => r.userId === currentUserId);
 
   // Host Notification: chime sound + haptic when a new join request arrives
@@ -727,6 +729,9 @@ export function PokerClientApp({
               </div>
             </div>
           )}
+
+          {/* Animated Wave Glow Overlay around screen edges when it's the viewing player's turn */}
+          <TurnEdgeWaveOverlay isActive={Boolean(isMyTurn && isHandActive)} />
 
           {/* Header Bar */}
           <HeaderBar

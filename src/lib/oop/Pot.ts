@@ -1,4 +1,4 @@
-import { SidePot } from '@/types/poker';
+import { SidePot, PotWinnerDetail } from '@/types/poker';
 import { Player } from './Player';
 
 /**
@@ -150,10 +150,12 @@ export class Pot {
   public awardWinners(
     winners: Player[],
     potWinnerMap?: Record<string, string[]> // potId -> winnerIds
-  ): { sharePerWinner: number; remainder: number } {
+  ): { sharePerWinner: number; remainder: number; potResults: PotWinnerDetail[] } {
     if (this._mainPot === 0) {
-      return { sharePerWinner: 0, remainder: 0 };
+      return { sharePerWinner: 0, remainder: 0, potResults: [] };
     }
+
+    const potResults: PotWinnerDetail[] = [];
 
     // Case 1: Specific Pot-by-Pot winner allocation (Side Pots)
     if (this._sidePots.length > 1 && potWinnerMap) {
@@ -169,53 +171,95 @@ export class Pot {
             ? eligibleWinners
             : winners.filter(w => pot.eligiblePlayerIds.includes(w.id));
 
+        const potDetail: PotWinnerDetail = {
+          potName: pot.name || 'Side Pot',
+          amount: pot.amount,
+          winners: [],
+        };
+
         if (finalWinners.length > 0 && pot.amount > 0) {
           const share = Math.floor(pot.amount / finalWinners.length);
           const rem = pot.amount % finalWinners.length;
           finalWinners.forEach((w, idx) => {
-            w.addChips(share + (idx === 0 ? rem : 0));
+            const awarded = share + (idx === 0 ? rem : 0);
+            w.addChips(awarded);
+            potDetail.winners.push({
+              id: w.id,
+              name: w.name,
+              avatarUrl: w.avatarUrl,
+              prize: awarded,
+            });
           });
           pot.amount = 0;
         }
+        potResults.push(potDetail);
       }
       this._mainPot = 0;
       this._sidePots = [];
-      return { sharePerWinner: 0, remainder: 0 };
+      return { sharePerWinner: 0, remainder: 0, potResults };
     }
 
     // Case 2: Multi-pot with simple winner selection (award each pot to eligible winners)
     if (this._sidePots.length > 1) {
       for (const pot of this._sidePots) {
         const eligibleWinners = winners.filter(w => pot.eligiblePlayerIds.includes(w.id));
+        const potDetail: PotWinnerDetail = {
+          potName: pot.name || 'Side Pot',
+          amount: pot.amount,
+          winners: [],
+        };
+
         if (eligibleWinners.length > 0 && pot.amount > 0) {
           const share = Math.floor(pot.amount / eligibleWinners.length);
           const rem = pot.amount % eligibleWinners.length;
           eligibleWinners.forEach((w, idx) => {
-            w.addChips(share + (idx === 0 ? rem : 0));
+            const awarded = share + (idx === 0 ? rem : 0);
+            w.addChips(awarded);
+            potDetail.winners.push({
+              id: w.id,
+              name: w.name,
+              avatarUrl: w.avatarUrl,
+              prize: awarded,
+            });
           });
           pot.amount = 0;
         }
+        potResults.push(potDetail);
       }
       this._mainPot = 0;
       this._sidePots = [];
-      return { sharePerWinner: 0, remainder: 0 };
+      return { sharePerWinner: 0, remainder: 0, potResults };
     }
 
     // Case 3: Classic Single Main Pot
-    if (winners.length === 0) return { sharePerWinner: 0, remainder: 0 };
+    if (winners.length === 0) return { sharePerWinner: 0, remainder: 0, potResults: [] };
 
     const count = winners.length;
     const share = Math.floor(this._mainPot / count);
     const remainder = this._mainPot % count;
 
+    const mainDetail: PotWinnerDetail = {
+      potName: 'Main Pot (กองหลัก)',
+      amount: this._mainPot,
+      winners: [],
+    };
+
     winners.forEach((winner, idx) => {
       const awarded = share + (idx === 0 ? remainder : 0);
       winner.addChips(awarded);
+      mainDetail.winners.push({
+        id: winner.id,
+        name: winner.name,
+        avatarUrl: winner.avatarUrl,
+        prize: awarded,
+      });
     });
+
+    potResults.push(mainDetail);
 
     this._mainPot = 0;
     this._sidePots = [];
-    return { sharePerWinner: share, remainder };
+    return { sharePerWinner: share, remainder, potResults };
   }
 
   public toJSON(): { pot: number; sidePots: SidePot[] } {

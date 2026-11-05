@@ -7,6 +7,7 @@ import { PokerTable } from '@/components/PokerTable';
 import { ActionControls } from '@/components/ActionControls';
 import { RaiseModal } from '@/components/RaiseModal';
 import { ShowdownModal } from '@/components/ShowdownModal';
+import { ShowdownResultModal } from '@/components/ShowdownResultModal';
 import { AdminPanel } from '@/components/AdminPanel';
 import { VoteModal } from '@/components/VoteModal';
 import { SettingsModal } from '@/components/SettingsModal';
@@ -64,6 +65,7 @@ export function PokerClientApp({
   const [isHostTransferModalOpen, setIsHostTransferModalOpen] = useState(false);
   const [isJoinRejected, setIsJoinRejected] = useState(false);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+  const [closedResultId, setClosedResultId] = useState<string | null>(null);
 
   // Sound and Haptic preferences
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -794,6 +796,14 @@ export function PokerClientApp({
             onNextHand={handleStartHand}
             onUndo={handleUndo}
           />
+
+          {/* Showdown Result Summary Modal (with X close button) */}
+          {Boolean(roomState.lastShowdownResult && closedResultId !== roomState.lastShowdownResult.id) && (
+            <ShowdownResultModal
+              result={roomState.lastShowdownResult}
+              onClose={() => setClosedResultId(roomState.lastShowdownResult?.id || null)}
+            />
+          )}
 
           {/* Admin Panel */}
           <AdminPanel

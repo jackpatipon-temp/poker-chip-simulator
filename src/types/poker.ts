@@ -47,6 +47,27 @@ export interface Vote {
   resolved: boolean;
 }
 
+export interface PotWinnerDetail {
+  potName: string;
+  amount: number;
+  winners: {
+    id: string;
+    name: string;
+    avatarUrl?: string;
+    prize: number;
+  }[];
+}
+
+export interface ShowdownResult {
+  id: string;
+  timestamp: number;
+  totalPot: number;
+  isFoldWin: boolean;
+  soleWinnerName?: string;
+  soleWinnerAvatar?: string;
+  potResults: PotWinnerDetail[];
+}
+
 export interface RoomState {
   roomId: string;
   roomName: string;
@@ -70,6 +91,7 @@ export interface RoomState {
   pendingRequests: JoinRequest[];
   activeVote?: Vote | null;
   winnerIds?: string[];
+  lastShowdownResult?: ShowdownResult | null;
   deckBurnCount?: number;
   isFirstHandStarted?: boolean;
 }

@@ -1,4 +1,4 @@
-import { RoomState, Street, GameHistoryEntry, JoinRequest, Vote } from '@/types/poker';
+import { RoomState, Street, GameHistoryEntry, JoinRequest, Vote, ShowdownResult } from '@/types/poker';
 import { Player, HostPlayer } from './Player';
 import { Pot } from './Pot';
 import { GameAction } from './actions/GameAction';
@@ -31,6 +31,7 @@ export class PokerRoom {
   private _pendingRequests: JoinRequest[];
   private _activeVote: Vote | null;
   private _winnerIds: string[];
+  private _lastShowdownResult?: ShowdownResult | null;
   private _isFirstHandStarted: boolean;
 
   constructor(
@@ -62,6 +63,7 @@ export class PokerRoom {
     this._pendingRequests = [];
     this._activeVote = null;
     this._winnerIds = [];
+    this._lastShowdownResult = null;
     this._isFirstHandStarted = false;
   }
 
@@ -84,6 +86,7 @@ export class PokerRoom {
   public get pendingRequests(): JoinRequest[] { return [...this._pendingRequests]; }
   public get activeVote(): Vote | null { return this._activeVote; }
   public get winnerIds(): string[] { return [...this._winnerIds]; }
+  public get lastShowdownResult(): ShowdownResult | null | undefined { return this._lastShowdownResult; }
   public get isFirstHandStarted(): boolean { return this._isFirstHandStarted; }
   public get raiseRule(): 'standard' | 'casual' { return this._raiseRule; }
   public get nextSmallBlind(): number | undefined { return this._nextSmallBlind; }
@@ -372,9 +375,23 @@ export class PokerRoom {
     if (winnerIds.length === 0 || this._pot.amount === 0) return;
     this.saveHistory(`Award pot to ${winnerIds.length} winner(s)`);
 
+    const totalPotBeforeAward = this._pot.amount;
+    const inHand = this.getPlayersInHand();
+    const isFoldWin = inHand.length === 1;
     const winners = this._players.filter(p => winnerIds.includes(p.id));
-    this._pot.awardWinners(winners, potWinnerMap);
+
+    const { potResults } = this._pot.awardWinners(winners, potWinnerMap);
     this._winnerIds = winnerIds;
+
+    this._lastShowdownResult = {
+      id: `sd_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: Date.now(),
+      totalPot: totalPotBeforeAward,
+      isFoldWin,
+      soleWinnerName: isFoldWin && winners.length === 1 ? winners[0].name : undefined,
+      soleWinnerAvatar: isFoldWin && winners.length === 1 ? winners[0].avatarUrl : undefined,
+      potResults,
+    };
   }
 
   public setDealer(playerId: string): void {
@@ -478,6 +495,7 @@ export class PokerRoom {
       pendingRequests: this._pendingRequests,
       activeVote: this._activeVote,
       winnerIds: this._winnerIds,
+      lastShowdownResult: this._lastShowdownResult,
       isFirstHandStarted: this._isFirstHandStarted,
     };
   }
@@ -513,6 +531,7 @@ export class PokerRoom {
     room._pendingRequests = state.pendingRequests || [];
     room._activeVote = state.activeVote || null;
     room._winnerIds = state.winnerIds || [];
+    room._lastShowdownResult = state.lastShowdownResult;
     room._isFirstHandStarted = !!state.isFirstHandStarted;
 
     return room;

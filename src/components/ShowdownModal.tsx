@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Trophy, Check, Undo2, Award, Coins } from 'lucide-react';
+import { Trophy, Check, Undo2, Award, Coins, Crown, Loader2 } from 'lucide-react';
 import { Player, SidePot } from '@/types/poker';
 import { sound, triggerHaptic } from '@/lib/sound';
 
@@ -198,8 +198,89 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
               </div>
             </div>
           </>
+        ) : !isHost ? (
+          /* SCENARIO B.1: NON-HOST WAITING OVERLAY */
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#f59e0b', marginBottom: 6 }}>
+              <Crown size={28} color="#fbbf24" />
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0, color: '#ffffff' }}>
+                กำลังเลือกผู้ชนะ...
+              </h2>
+            </div>
+
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 16px' }}>
+              Host กำลังตรวจสอบหน้าไพ่จริงนอกจอ และทำการเลือกผู้ชนะในแต่ละ Pot
+            </p>
+
+            {/* Total Pot Banner */}
+            <div
+              style={{
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: 14,
+                padding: '12px 16px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+                marginBottom: 16,
+              }}
+            >
+              <span style={{ fontSize: '0.72rem', color: '#fbbf24', textTransform: 'uppercase', fontWeight: 700 }}>
+                {hasMultiplePots ? 'เงินกองกลางทั้งหมด (Total Pot)' : 'Main Pot'}
+              </span>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '2rem', fontWeight: 800, color: '#f59e0b' }}>
+                🪙 {totalPotAmount.toLocaleString()}
+              </div>
+            </div>
+
+            {/* Pots breakdown summary */}
+            {hasMultiplePots && sidePots && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16, textAlign: 'left' }}>
+                {sidePots.map((potItem, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.35)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: 10,
+                      padding: '8px 12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#e5e7eb' }}>
+                      {potItem.name || (idx === 0 ? 'Main Pot' : `Side Pot ${idx}`)}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#fbbf24', fontSize: '0.92rem' }}>
+                      🪙 {potItem.amount.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 12,
+                background: 'rgba(59, 130, 246, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                color: '#93c5fd',
+                fontSize: '0.82rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
+              <Loader2 size={16} className="animate-spin" />
+              <span>รอสักครู่ เมื่อ Host ยืนยัน หน้าต่างสรุปผลผู้ชนะจะแสดงขึ้นทันที</span>
+            </div>
+          </>
         ) : (
-          /* SCENARIO B: CLASSIC MULTI-PLAYER SHOWDOWN */
+          /* SCENARIO B.2: HOST SELECTION VIEW */
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#f59e0b' }}>
               <Trophy size={28} />
@@ -397,8 +478,8 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
         )}
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {isHost ? (
+        {isHost && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
             <button
               type="button"
               className="primary-btn"
@@ -420,21 +501,7 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
                 ? 'แจกชิป Side Pots & เริ่ม Hand ถัดไป'
                 : `แจกชิป & เริ่ม Hand ถัดไป (${selectedWinners.length} คน)`}
             </button>
-          ) : (
-            <div
-              style={{
-                padding: '10px 14px',
-                borderRadius: 10,
-                background: 'rgba(255, 255, 255, 0.05)',
-                color: '#9ca3af',
-                fontSize: '0.82rem',
-              }}
-            >
-              ⏳ รอให้ Host เป็นผู้กดเริ่ม Hand ถัดไป...
-            </div>
-          )}
 
-          {isHost && (
             <button
               type="button"
               className="secondary-btn"
@@ -445,8 +512,8 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
               <Undo2 size={15} />
               ย้อนกลับการตัดสินใจ (Undo)
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

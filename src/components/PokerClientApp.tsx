@@ -123,14 +123,9 @@ export function PokerClientApp({
   const isPollingRef = useRef(false);
   const consecutive404Ref = useRef(0);
 
-  // Check Disclaimer on mount
+  // Always display Disclaimer modal on every site visit / fresh load
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const accepted = localStorage.getItem('poker_disclaimer_accepted');
-      if (!accepted) {
-        setIsDisclaimerOpen(true);
-      }
-    }
+    setIsDisclaimerOpen(true);
   }, []);
 
   // Sync browser Back/Forward history buttons with room state

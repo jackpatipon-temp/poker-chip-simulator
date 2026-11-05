@@ -236,31 +236,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                     textAlign: 'center',
                   }}
                 >
-                  <div style={{ fontSize: '0.76rem', color: '#fcd34d', fontWeight: 700 }}>
-                    ⏳ รอ Host กดเริ่มแจกชิปบนคอมพิวเตอร์
+                  <div style={{ fontSize: '0.78rem', color: '#fcd34d', fontWeight: 700 }}>
+                    ⏳ รอ Host กดเริ่มแจกชิปบนโต๊ะ
                   </div>
-                  {onStartHand && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        sound.playWin();
-                        triggerHaptic(20);
-                        onStartHand();
-                      }}
-                      style={{
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        background: 'rgba(255,255,255,0.12)',
-                        border: '1px solid rgba(255,255,255,0.25)',
-                        color: '#ffffff',
-                        padding: '4px 10px',
-                        borderRadius: 6,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      กดเริ่ม Hand เอง (โหมดทดสอบ)
-                    </button>
-                  )}
                 </div>
               )}
 

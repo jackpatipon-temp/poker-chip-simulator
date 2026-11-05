@@ -16,7 +16,7 @@ export const DisclaimerModal: React.FC<DisclaimerModalProps> = ({ isOpen, onAcce
     sound.playChip();
     triggerHaptic(30);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('poker_disclaimer_accepted', 'true');
+      localStorage.removeItem('poker_disclaimer_accepted');
     }
     onAccept();
   };

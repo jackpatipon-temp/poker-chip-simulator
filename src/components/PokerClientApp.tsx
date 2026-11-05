@@ -15,7 +15,7 @@ import { LobbyView } from '@/components/LobbyView';
 import { HostTransferModal } from '@/components/HostTransferModal';
 import { subscribeToSupabaseRoomRealtime } from '@/lib/supabase-room';
 import { createRoom, joinRoom, dispatchRoomAction, fetchRoomState } from '@/lib/room-service';
-import { handlePlayerAction } from '@/lib/poker-engine';
+import { handlePlayerAction, awardPotToWinners, startNewHand } from '@/lib/poker-engine';
 import { Check, X, Loader2 } from 'lucide-react';
 import { sound, triggerHaptic } from '@/lib/sound';
 import {
@@ -413,6 +413,7 @@ export function PokerClientApp({
   );
 
   const handleStartHand = useCallback(() => {
+    setRoomState(prev => (prev ? startNewHand(prev) : prev));
     sendRoomAction({ type: 'START_HAND' });
   }, [sendRoomAction]);
 
@@ -422,7 +423,8 @@ export function PokerClientApp({
 
   const handleConfirmWinners = useCallback(
     (winnerIds: string[]) => {
-      sendRoomAction({ type: 'SHOWDOWN_WINNERS', winnerIds });
+      setRoomState(prev => (prev ? awardPotToWinners(prev, winnerIds, true) : prev));
+      sendRoomAction({ type: 'SHOWDOWN_WINNERS', winnerIds, startNextHand: true });
     },
     [sendRoomAction]
   );

@@ -46,7 +46,8 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
     setIsSubmitting(false);
   }, [isOpen, initialWinnerIds, eligiblePlayers.length]);
 
-  if (!isOpen) return null;
+  // If pot is 0 and it's not a fold win, showdown is already finished -> do not show modal
+  if (!isOpen || (pot === 0 && !isFoldWin)) return null;
 
   const toggleWinner = (playerId: string) => {
     sound.playChip();
@@ -68,11 +69,12 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
     sound.playWin();
     triggerHaptic(40);
 
-    // If pot still has chips to distribute, confirm winners first
-    if (pot > 0 && selectedWinners.length > 0) {
+    // If classic showdown with chips, award winners & start next hand in one atomic action
+    if (!isFoldWin && pot > 0 && selectedWinners.length > 0) {
       onConfirmWinners(selectedWinners);
+    } else {
+      onNextHand();
     }
-    onNextHand();
   };
 
   return (

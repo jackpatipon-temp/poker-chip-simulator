@@ -261,7 +261,10 @@ export const dispatchSupabaseRoomAction = async (
       }
       break;
     case 'SHOWDOWN_WINNERS':
-      if (actionPayload.winnerIds) updated = awardPotToWinners(room, actionPayload.winnerIds);
+      if (actionPayload.winnerIds) {
+        const startNext = actionPayload.startNextHand !== false;
+        updated = awardPotToWinners(room, actionPayload.winnerIds, startNext);
+      }
       break;
     case 'UNDO':
       const undone = restoreHistorySnapshot(room);

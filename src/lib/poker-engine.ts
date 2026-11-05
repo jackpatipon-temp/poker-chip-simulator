@@ -111,9 +111,16 @@ export const handlePlayerAction = (
   return room.toJSON();
 };
 
-export const awardPotToWinners = (state: RoomState, winnerIds: string[]): RoomState => {
+export const awardPotToWinners = (
+  state: RoomState,
+  winnerIds: string[],
+  startNextHand: boolean = true
+): RoomState => {
   const room = PokerRoom.fromState(state);
   room.awardPotToWinners(winnerIds);
+  if (startNextHand) {
+    room.startNewHand();
+  }
   return room.toJSON();
 };
 

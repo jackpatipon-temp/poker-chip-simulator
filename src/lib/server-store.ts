@@ -325,7 +325,8 @@ export const dispatchServerRoomAction = (
 
     case 'SHOWDOWN_WINNERS':
       if (actionPayload.winnerIds) {
-        updated = awardPotToWinners(room, actionPayload.winnerIds);
+        const startNext = (actionPayload as any).startNextHand !== false;
+        updated = awardPotToWinners(room, actionPayload.winnerIds, startNext);
       }
       break;
 

@@ -38,23 +38,23 @@ export function PokerClientApp({
   initialUserId,
   initialRoom,
 }: PokerClientAppProps) {
-  const [currentPin, setCurrentPin] = useState<string | null>(() => {
-    if (initialPin) return initialPin;
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('poker_room_pin');
-    }
-    return null;
-  });
-
-  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
-    if (initialUserId) return initialUserId;
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('poker_user_id');
-    }
-    return null;
-  });
-
+  // Avoid hydration mismatch (#418): initialize strictly from props, then sync with localStorage on mount
+  const [currentPin, setCurrentPin] = useState<string | null>(initialPin || null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(initialUserId || null);
   const [roomState, setRoomState] = useState<RoomState | null>(initialRoom || null);
+
+  // Restore saved session from localStorage after hydration without causing mismatch
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const pinFromUrl = urlParams.get('pin');
+      const userFromUrl = urlParams.get('userId');
+      const pin = pinFromUrl || localStorage.getItem('poker_room_pin');
+      const user = userFromUrl || localStorage.getItem('poker_user_id');
+      if (pin && !initialPin) setCurrentPin(pin);
+      if (user && !initialUserId) setCurrentUserId(user);
+    }
+  }, [initialPin, initialUserId]);
 
   // Modals state
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
@@ -151,20 +151,19 @@ export function PokerClientApp({
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Hybrid Real-Time Engine: Supabase Realtime (Database & WebSockets) + SSE + Adaptive Fallback
+  // Hybrid Real-Time Engine: Supabase Realtime preferred, SSE only as fallback
   useEffect(() => {
     if (!currentPin) return;
 
     let isMounted = true;
     let eventSource: EventSource | null = null;
-    let lastRealtimeMsgTime = Date.now();
+    const useSupabase = isSupabaseConfigured();
 
-    // 1. Primary Real-Time Channel: Supabase Realtime (Zero server load, sub-30ms global WebSockets)
+    // 1. Primary: Supabase Realtime (zero server load, sub-30ms global WebSockets)
     const unsubSupabase = subscribeToSupabaseRoomRealtime(
       currentPin,
       (updated) => {
         if (!isMounted) return;
-        lastRealtimeMsgTime = Date.now();
         setRoomState(updated);
       },
       () => {
@@ -173,51 +172,49 @@ export function PokerClientApp({
       }
     );
 
-    // 2. Secondary Real-Time Channel: Optimized Server-Sent Events (SSE)
-    try {
-      eventSource = new EventSource(`/api/rooms/${currentPin}/stream`);
-      eventSource.onmessage = (event) => {
-        if (!isMounted) return;
-        lastRealtimeMsgTime = Date.now();
-        try {
-          const data = JSON.parse(event.data);
-          if (data && data.roomId) {
-            setRoomState(data);
-          }
-        } catch {}
-      };
-      eventSource.onerror = () => {
-        // SSE auto-reconnects
-      };
-    } catch {}
-
-    // 3. Adaptive Fallback: ONLY runs if no real-time event was received for 5+ seconds
-    const adaptivePoll = async () => {
-      if (!isMounted || isPollingRef.current) return;
-      if (Date.now() - lastRealtimeMsgTime < 5000) {
-        return;
-      }
-
-      isPollingRef.current = true;
+    // 2. Fallback ONLY when Supabase is NOT configured: use SSE
+    if (!useSupabase) {
       try {
-        const latest = await fetchRoomState(currentPin);
-        if (latest && isMounted) {
-          lastRealtimeMsgTime = Date.now();
-          setRoomState(latest);
-        }
-      } catch {
-      } finally {
-        isPollingRef.current = false;
-      }
-    };
+        eventSource = new EventSource(`/api/rooms/${currentPin}/stream`);
+        eventSource.onmessage = (event) => {
+          if (!isMounted) return;
+          try {
+            const data = JSON.parse(event.data);
+            if (data && data.roomId) {
+              setRoomState(data);
+            }
+          } catch {}
+        };
+        eventSource.onerror = () => {
+          // SSE auto-reconnects
+        };
+      } catch {}
+    }
 
-    const interval = setInterval(adaptivePoll, 4000);
+    // 3. Fallback polling ONLY when Supabase is NOT configured (every 6s)
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (!useSupabase) {
+      const adaptivePoll = async () => {
+        if (!isMounted || isPollingRef.current) return;
+        isPollingRef.current = true;
+        try {
+          const latest = await fetchRoomState(currentPin);
+          if (latest && isMounted) {
+            setRoomState(latest);
+          }
+        } catch {
+        } finally {
+          isPollingRef.current = false;
+        }
+      };
+      interval = setInterval(adaptivePoll, 6000);
+    }
 
     return () => {
       isMounted = false;
       if (unsubSupabase) unsubSupabase();
       if (eventSource) eventSource.close();
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     };
   }, [currentPin]);
 
@@ -227,7 +224,7 @@ export function PokerClientApp({
       if (!currentPin) return;
       setIsSubmittingAction(true);
       try {
-        const updated = await dispatchRoomAction(currentPin, payload);
+        const updated = await dispatchRoomAction(currentPin, payload, roomState || undefined);
         if (updated) {
           setRoomState(updated);
         }
@@ -237,7 +234,7 @@ export function PokerClientApp({
         setIsSubmittingAction(false);
       }
     },
-    [currentPin]
+    [currentPin, roomState]
   );
 
   // Create Room handler

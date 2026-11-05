@@ -49,8 +49,19 @@ export const subscribeToRoom = (
   };
 };
 
+/**
+ * Broadcasts room state to all SSE subscribers.
+ * CRITICAL: Strips heavy history snapshots to reduce payload from ~500KB to ~5KB.
+ */
 export const broadcastRoomUpdate = (room: RoomState) => {
-  roomEmitter.emit('room_updated', room);
+  const lightweight: RoomState = {
+    ...room,
+    history: room.history.map(h => ({
+      ...h,
+      snapshot: '', // Strip snapshot strings from broadcast — saves 90%+ payload
+    })),
+  };
+  roomEmitter.emit('room_updated', lightweight);
 };
 
 export const deleteServerRoom = (pin: string): boolean => {

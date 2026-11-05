@@ -113,11 +113,12 @@ export const joinRoom = async (
 
 export const dispatchRoomAction = async (
   pin: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  baseRoom?: RoomState
 ): Promise<RoomState | null> => {
   if (isSupabaseConfigured()) {
     try {
-      const updated = await dispatchSupabaseRoomAction(pin, payload);
+      const updated = await dispatchSupabaseRoomAction(pin, payload, baseRoom);
       if (updated !== null && updated !== undefined) {
         return updated;
       }

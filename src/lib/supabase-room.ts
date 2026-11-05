@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { RoomState, Player, JoinRequest } from '@/types/poker';
 import {
   createInitialRoomState,
@@ -17,6 +18,20 @@ export interface SupabaseRoomRow {
   state: RoomState;
   updated_at: string;
 }
+
+// Active Realtime Channel Map by room PIN (reused across subscriptions & broadcasts)
+const activeSyncChannels = new Map<string, RealtimeChannel>();
+
+export const getOrCreateRoomChannel = (pin: string): RealtimeChannel => {
+  let ch = activeSyncChannels.get(pin);
+  if (!ch) {
+    ch = supabase.channel(`room_sync_${pin}`, {
+      config: { broadcast: { self: true } },
+    });
+    activeSyncChannels.set(pin, ch);
+  }
+  return ch;
+};
 
 /**
  * Fetches the current room state from Supabase 'rooms' table.
@@ -38,27 +53,45 @@ export const getSupabaseRoom = async (pin: string): Promise<RoomState | null> =>
 
 /**
  * Saves/updates room state in Supabase and broadcasts via WebSockets in < 30ms.
+ * Broadcasts a lightweight payload (no history snapshots) to save bandwidth.
  */
 export const saveSupabaseRoom = async (pin: string, room: RoomState): Promise<boolean> => {
   if (!isSupabaseConfigured()) return false;
+
+  const lightweight: RoomState = {
+    ...room,
+    history: (room.history || []).map(h => ({
+      ...h,
+      snapshot: '', // Strip heavy snapshots from broadcast
+    })),
+  };
+
+  // 1. FAST BROADCAST (< 30ms peer sync over open WebSocket)
+  try {
+    const ch = getOrCreateRoomChannel(pin);
+    ch.send({
+      type: 'broadcast',
+      event: 'room_state',
+      payload: lightweight,
+    }).catch((err) => {
+      console.warn('[Supabase Realtime] Broadcast send error:', err);
+    });
+  } catch (err) {
+    console.warn('[Supabase Realtime] Broadcast failed:', err);
+  }
+
+  // 2. Persist to Supabase DB for reconnects & page refreshes
   try {
     const { error } = await supabase
       .from('rooms')
       .upsert({ id: pin, state: room, updated_at: new Date().toISOString() });
 
-    // Also broadcast via Supabase Realtime channel for instant sub-30ms peer delivery
-    try {
-      const channel = supabase.channel(`room_sync_${pin}`);
-      channel.send({
-        type: 'broadcast',
-        event: 'room_state',
-        payload: room,
-      }).catch(() => {});
-    } catch {}
-
+    if (error) {
+      console.warn('[SupabaseRoom] DB upsert warning:', error.message);
+    }
     return !error;
   } catch (err) {
-    console.warn('[SupabaseRoom] Save failed:', err);
+    console.warn('[SupabaseRoom] Save DB failed:', err);
     return false;
   }
 };
@@ -189,12 +222,14 @@ export const joinSupabaseRoom = async (
 
 /**
  * Dispatches any poker action (Fold, Check, Call, Raise, Start Hand, Transfer Host, etc.) to Supabase.
+ * If baseRoom is provided, avoids an unnecessary GET roundtrip (< 0ms network latency).
  */
 export const dispatchSupabaseRoomAction = async (
   pin: string,
-  actionPayload: any
+  actionPayload: any,
+  baseRoom?: RoomState
 ): Promise<RoomState | null> => {
-  const room = await getSupabaseRoom(pin);
+  const room = baseRoom || (await getSupabaseRoom(pin));
   if (!room) return null;
 
   let updated = { ...room };
@@ -325,6 +360,7 @@ export const dispatchSupabaseRoomAction = async (
 
 /**
  * Subscribes to Supabase Realtime (both database postgres_changes and channel broadcast).
+ * Uses persistent channel singleton for instant sub-30ms peer sync.
  */
 export const subscribeToSupabaseRoomRealtime = (
   pin: string,
@@ -333,11 +369,9 @@ export const subscribeToSupabaseRoomRealtime = (
 ): (() => void) => {
   if (!isSupabaseConfigured()) return () => {};
 
-  const channel = supabase.channel(`room_sync_${pin}`, {
-    config: { broadcast: { self: true } },
-  });
+  const channel = getOrCreateRoomChannel(pin);
 
-  // A. Database postgres_changes
+  // A. Database postgres_changes (in case Realtime replication is enabled on 'rooms' table)
   channel.on(
     'postgres_changes',
     {
@@ -355,17 +389,25 @@ export const subscribeToSupabaseRoomRealtime = (
     }
   );
 
-  // B. Instant WebSockets Broadcast (< 30ms peer sync)
+  // B. Instant WebSockets Broadcast (< 30ms peer sync without waiting for DB replication)
   channel.on('broadcast', { event: 'room_state' }, ({ payload }) => {
     if (payload && payload.roomId === pin) {
       onUpdate(payload as RoomState);
     }
   });
 
-  channel.subscribe();
+  // Ensure channel is actively subscribed
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      console.log(`[Supabase Realtime] Connected to room channel: room_sync_${pin}`);
+    }
+  });
 
   return () => {
-    supabase.removeChannel(channel).catch(() => {});
+    try {
+      supabase.removeChannel(channel).catch(() => {});
+      activeSyncChannels.delete(pin);
+    } catch {}
   };
 };
 

@@ -390,7 +390,7 @@ export class PokerRoom {
       description,
       snapshot: JSON.stringify(this.toJSON()),
     };
-    this._history = [...this._history.slice(-15), entry];
+    this._history = [...this._history.slice(-2), entry];
   }
 
   public undo(): boolean {

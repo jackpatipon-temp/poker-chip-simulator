@@ -173,8 +173,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 <span>ในโต๊ะมี {players.length} คน</span>
               </div>
 
-              {/* Seating and Dealer Setup Trigger */}
-              {onOpenSeating && (
+              {/* Seating and Dealer Setup Trigger (Host Only) */}
+              {isHost && onOpenSeating && (
                 <button
                   type="button"
                   className="secondary-btn"

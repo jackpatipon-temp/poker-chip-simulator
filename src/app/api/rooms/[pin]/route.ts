@@ -66,12 +66,14 @@ export async function POST(
     }
 
     if (body.type === 'APPROVE') {
-      const updated = approveJoinRequest(pin, body.requestId, body.chips);
+      const requester = body.requesterId || body.playerId;
+      const updated = approveJoinRequest(pin, body.requestId, body.chips, requester);
       return NextResponse.json({ success: true, room: updated }, { headers: noCacheHeaders });
     }
 
     if (body.type === 'REJECT') {
-      const updated = rejectJoinRequest(pin, body.requestId);
+      const requester = body.requesterId || body.playerId;
+      const updated = rejectJoinRequest(pin, body.requestId, requester);
       return NextResponse.json({ success: true, room: updated }, { headers: noCacheHeaders });
     }
 

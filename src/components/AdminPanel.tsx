@@ -9,6 +9,8 @@ import { sound, triggerHaptic } from '@/lib/sound';
 interface AdminPanelProps {
   isOpen: boolean;
   state: RoomState;
+  isHost?: boolean;
+  currentUserId?: string;
   onClose: () => void;
   onApproveRequest: (requestId: string, chips: number) => void;
   onRejectRequest: (requestId: string) => void;
@@ -28,6 +30,8 @@ interface AdminPanelProps {
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   isOpen,
   state,
+  isHost = true,
+  currentUserId,
   onClose,
   onApproveRequest,
   onRejectRequest,
@@ -49,7 +53,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [bbInput, setBbInput] = useState(state.nextBigBlind ?? state.bigBlind);
   const [activeTab, setActiveTab] = useState<'seating' | 'requests' | 'vote' | 'game'>(initialTab);
 
-  if (!isOpen) return null;
+  if (!isOpen || !isHost) return null;
 
   const handleApprove = (req: JoinRequest) => {
     sound.playChip();
@@ -171,7 +175,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                 ผู้เล่นในโต๊ะ ({state.players.length} คน):
               </span>
-              {onRandomizeDealer && (
+              {isHost && onRandomizeDealer && (
                 <button
                   type="button"
                   className="secondary-btn"
@@ -289,7 +293,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <span>Dealer</span>
                         </div>
                       ) : (
-                        onSetDealer && (
+                        isHost && onSetDealer && (
                           <button
                             type="button"
                             className="secondary-btn"
@@ -311,7 +315,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       )}
 
                       {/* Move Seat Up / Down */}
-                      {onMoveSeat && state.players.length > 1 && (
+                      {isHost && onMoveSeat && state.players.length > 1 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <button
                             type="button"
@@ -341,7 +345,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       )}
 
                       {/* Toggle AFK / Sit Out for player */}
-                      {onToggleAfk && (
+                      {(isHost || p.id === currentUserId) && onToggleAfk && (
                         <button
                           type="button"
                           className="icon-btn"
@@ -362,8 +366,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </button>
                       )}
 
-                      {/* Transfer Host button (only for non-host players) */}
-                      {!p.isHost && onTransferHost && (
+                      {/* Transfer Host button (only for non-host players, callable only by Host) */}
+                      {!p.isHost && isHost && onTransferHost && (
                         <button
                           type="button"
                           className="icon-btn"
@@ -387,8 +391,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </button>
                       )}
 
-                      {/* Kick player button (only for non-host players) */}
-                      {!p.isHost && onKickPlayer && (
+                      {/* Kick player button (only for non-host players, callable only by Host) */}
+                      {!p.isHost && isHost && onKickPlayer && (
                         <button
                           type="button"
                           className="icon-btn"

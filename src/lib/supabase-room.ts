@@ -247,9 +247,15 @@ export const dispatchSupabaseRoomAction = async (
   if (!room) return null;
 
   let updated = { ...room };
+  const requester = actionPayload.requesterId || actionPayload.playerId;
+  const isHost = requester === updated.hostId;
 
   switch (actionPayload.type) {
     case 'SET_NEXT_BLINDS':
+      if (!isHost) {
+        console.warn('Unauthorized SET_NEXT_BLINDS attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.smallBlind && actionPayload.bigBlind) {
         updated = setRoomNextBlinds(room, actionPayload.smallBlind, actionPayload.bigBlind);
       }
@@ -261,36 +267,68 @@ export const dispatchSupabaseRoomAction = async (
       }
       break;
     case 'START_HAND':
+      if (!isHost) {
+        console.warn('Unauthorized START_HAND attempt by non-host:', requester);
+        break;
+      }
       updated = startNewHand(room);
       break;
     case 'SET_DEALER':
+      if (!isHost) {
+        console.warn('Unauthorized SET_DEALER attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.playerId) updated = setRoomDealer(room, actionPayload.playerId);
       break;
     case 'RANDOMIZE_DEALER':
+      if (!isHost) {
+        console.warn('Unauthorized RANDOMIZE_DEALER attempt by non-host:', requester);
+        break;
+      }
       updated = randomizeRoomDealer(room);
       break;
     case 'SWAP_SEATS':
+      if (!isHost) {
+        console.warn('Unauthorized SWAP_SEATS attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.playerId && actionPayload.targetPlayerId) {
         updated = swapPlayerSeats(room, actionPayload.playerId, actionPayload.targetPlayerId);
       }
       break;
     case 'MOVE_SEAT':
+      if (!isHost) {
+        console.warn('Unauthorized MOVE_SEAT attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.playerId && actionPayload.direction) {
         updated = movePlayerSeat(room, actionPayload.playerId, actionPayload.direction);
       }
       break;
     case 'SHOWDOWN_WINNERS':
+      if (!isHost) {
+        console.warn('Unauthorized SHOWDOWN_WINNERS attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.winnerIds) {
         const startNext = actionPayload.startNextHand !== false;
         updated = awardPotToWinners(room, actionPayload.winnerIds, startNext, actionPayload.potWinnerMap);
       }
       break;
     case 'UNDO':
+      if (!isHost) {
+        console.warn('Unauthorized UNDO attempt by non-host:', requester);
+        break;
+      }
       const undone = restoreHistorySnapshot(room);
       if (undone) updated = undone;
       break;
     case 'TOGGLE_AFK':
       if (actionPayload.playerId) {
+        if (!isHost && requester !== actionPayload.playerId) {
+          console.warn('Unauthorized TOGGLE_AFK attempt:', requester);
+          break;
+        }
         updated.players = updated.players.map(p =>
           p.id === actionPayload.playerId
             ? { ...p, status: p.status === 'sitting-out' ? 'active' : 'sitting-out' }
@@ -299,6 +337,10 @@ export const dispatchSupabaseRoomAction = async (
       }
       break;
     case 'TRANSFER_HOST':
+      if (!isHost) {
+        console.warn('Unauthorized TRANSFER_HOST attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.targetPlayerId) {
         updated.hostId = actionPayload.targetPlayerId;
         updated.players = updated.players.map(p => ({
@@ -329,7 +371,11 @@ export const dispatchSupabaseRoomAction = async (
       }
       break;
     case 'KICK_PLAYER':
-      if (actionPayload.targetPlayerId) {
+      if (!isHost) {
+        console.warn('Unauthorized KICK_PLAYER attempt by non-host:', requester);
+        break;
+      }
+      if (actionPayload.targetPlayerId && actionPayload.targetPlayerId !== updated.hostId) {
         updated.players = updated.players.filter(p => p.id !== actionPayload.targetPlayerId);
         updated.players = updated.players.map((p, idx) => ({ ...p, seatIndex: idx }));
         if (updated.players.length > 0) {
@@ -339,6 +385,10 @@ export const dispatchSupabaseRoomAction = async (
       }
       break;
     case 'APPROVE':
+      if (!isHost) {
+        console.warn('Unauthorized APPROVE attempt by non-host:', requester);
+        break;
+      }
       const reqIdx = updated.pendingRequests.findIndex(r => r.id === actionPayload.requestId);
       if (reqIdx !== -1) {
         const req = updated.pendingRequests[reqIdx];
@@ -364,6 +414,10 @@ export const dispatchSupabaseRoomAction = async (
       }
       break;
     case 'REJECT':
+      if (!isHost) {
+        console.warn('Unauthorized REJECT attempt by non-host:', requester);
+        break;
+      }
       updated.pendingRequests = updated.pendingRequests.filter(r => r.id !== actionPayload.requestId);
       break;
   }

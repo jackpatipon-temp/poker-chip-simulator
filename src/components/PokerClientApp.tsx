@@ -221,7 +221,11 @@ export function PokerClientApp({
       if (!currentPin) return;
       setIsSubmittingAction(true);
       try {
-        const updated = await dispatchRoomAction(currentPin, payload, roomState || undefined);
+        const payloadWithRequester = {
+          requesterId: currentUserId,
+          ...payload,
+        };
+        const updated = await dispatchRoomAction(currentPin, payloadWithRequester, roomState || undefined);
         if (updated) {
           setRoomState(updated);
         }
@@ -231,7 +235,7 @@ export function PokerClientApp({
         setIsSubmittingAction(false);
       }
     },
-    [currentPin, roomState]
+    [currentPin, currentUserId, roomState]
   );
 
   // Create Room handler
@@ -735,7 +739,7 @@ export function PokerClientApp({
             userName={currentPlayer?.name || authUser?.name}
             onToggleSittingOut={handleToggleSittingOut}
             onOpenSettings={() => setIsSettingsOpen(true)}
-            onOpenAdmin={() => setIsAdminPanelOpen(true)}
+            onOpenAdmin={isHost ? () => setIsAdminPanelOpen(true) : () => {}}
           />
 
           {/* Oval Table */}
@@ -746,8 +750,8 @@ export function PokerClientApp({
             currentUserId={currentUserId || ''}
             roomPin={currentPin}
             isHost={isHost}
-            onStartHand={handleStartHand}
-            onOpenSeating={() => setIsAdminPanelOpen(true)}
+            onStartHand={isHost ? handleStartHand : undefined}
+            onOpenSeating={isHost ? () => setIsAdminPanelOpen(true) : undefined}
           />
 
           {/* Bottom Controls */}
@@ -800,24 +804,28 @@ export function PokerClientApp({
             />
           )}
 
-          {/* Admin Panel */}
-          <AdminPanel
-            isOpen={isAdminPanelOpen}
-            state={roomState}
-            onClose={() => setIsAdminPanelOpen(false)}
-            onApproveRequest={handleApproveRequest}
-            onRejectRequest={handleRejectRequest}
-            onUndo={handleUndo}
-            onCreateVote={handleCreateVote}
-            onToggleHostPlaying={() => {}}
-            onUpdateBlinds={handleUpdateBlinds}
-            onSetDealer={handleSetDealer}
-            onRandomizeDealer={handleRandomizeDealer}
-            onMoveSeat={handleMoveSeat}
-            onToggleAfk={handleToggleAfk}
-            onKickPlayer={handleKickPlayer}
-            onTransferHost={handleTransferHost}
-          />
+          {/* Admin Panel (Host Only) */}
+          {isHost && (
+            <AdminPanel
+              isOpen={isAdminPanelOpen}
+              state={roomState}
+              isHost={isHost}
+              currentUserId={currentUserId || ''}
+              onClose={() => setIsAdminPanelOpen(false)}
+              onApproveRequest={handleApproveRequest}
+              onRejectRequest={handleRejectRequest}
+              onUndo={handleUndo}
+              onCreateVote={handleCreateVote}
+              onToggleHostPlaying={() => {}}
+              onUpdateBlinds={handleUpdateBlinds}
+              onSetDealer={handleSetDealer}
+              onRandomizeDealer={handleRandomizeDealer}
+              onMoveSeat={handleMoveSeat}
+              onToggleAfk={handleToggleAfk}
+              onKickPlayer={handleKickPlayer}
+              onTransferHost={handleTransferHost}
+            />
+          )}
 
           {/* Interactive Vote Modal */}
           <VoteModal

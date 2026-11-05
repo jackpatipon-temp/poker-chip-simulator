@@ -223,10 +223,16 @@ export const requestJoinServerRoom = (
 export const approveJoinRequest = (
   pin: string,
   requestId: string,
-  chips: number
+  chips: number,
+  requesterId?: string
 ): RoomState | null => {
   const room = roomsMap.get(pin);
   if (!room) return null;
+
+  if (requesterId && requesterId !== room.hostId) {
+    console.warn('Unauthorized approveJoinRequest by non-host:', requesterId);
+    return room;
+  }
 
   const reqIndex = room.pendingRequests.findIndex(r => r.id === requestId);
   if (reqIndex === -1) return room;
@@ -257,9 +263,18 @@ export const approveJoinRequest = (
   return room;
 };
 
-export const rejectJoinRequest = (pin: string, requestId: string): RoomState | null => {
+export const rejectJoinRequest = (
+  pin: string,
+  requestId: string,
+  requesterId?: string
+): RoomState | null => {
   const room = roomsMap.get(pin);
   if (!room) return null;
+
+  if (requesterId && requesterId !== room.hostId) {
+    console.warn('Unauthorized rejectJoinRequest by non-host:', requesterId);
+    return room;
+  }
 
   room.pendingRequests = room.pendingRequests.filter(r => r.id !== requestId);
   broadcastRoomUpdate(room);
@@ -286,6 +301,7 @@ export const dispatchServerRoomAction = (
       | 'MOVE_SEAT'
       | 'TRANSFER_HOST'
       | 'SET_NEXT_BLINDS';
+    requesterId?: string;
     playerId?: string;
     targetPlayerId?: string;
     newHostId?: string;
@@ -306,9 +322,15 @@ export const dispatchServerRoomAction = (
   if (!room) return null;
 
   let updated = room;
+  const requester = actionPayload.requesterId || actionPayload.playerId;
+  const isHost = requester === updated.hostId;
 
   switch (actionPayload.type) {
     case 'SET_NEXT_BLINDS':
+      if (!isHost) {
+        console.warn('Unauthorized SET_NEXT_BLINDS attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.smallBlind && actionPayload.bigBlind) {
         updated = setRoomNextBlinds(room, actionPayload.smallBlind, actionPayload.bigBlind);
       }
@@ -322,32 +344,56 @@ export const dispatchServerRoomAction = (
       break;
 
     case 'START_HAND':
+      if (!isHost) {
+        console.warn('Unauthorized START_HAND attempt by non-host:', requester);
+        break;
+      }
       updated = startNewHand(room);
       break;
 
     case 'SET_DEALER':
+      if (!isHost) {
+        console.warn('Unauthorized SET_DEALER attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.playerId) {
         updated = setRoomDealer(room, actionPayload.playerId);
       }
       break;
 
     case 'RANDOMIZE_DEALER':
+      if (!isHost) {
+        console.warn('Unauthorized RANDOMIZE_DEALER attempt by non-host:', requester);
+        break;
+      }
       updated = randomizeRoomDealer(room);
       break;
 
     case 'SWAP_SEATS':
+      if (!isHost) {
+        console.warn('Unauthorized SWAP_SEATS attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.playerId && actionPayload.targetPlayerId) {
         updated = swapPlayerSeats(room, actionPayload.playerId, actionPayload.targetPlayerId);
       }
       break;
 
     case 'MOVE_SEAT':
+      if (!isHost) {
+        console.warn('Unauthorized MOVE_SEAT attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.playerId && actionPayload.direction) {
         updated = movePlayerSeat(room, actionPayload.playerId, actionPayload.direction);
       }
       break;
 
     case 'SHOWDOWN_WINNERS':
+      if (!isHost) {
+        console.warn('Unauthorized SHOWDOWN_WINNERS attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.winnerIds) {
         const startNext = (actionPayload as any).startNextHand !== false;
         updated = awardPotToWinners(room, actionPayload.winnerIds, startNext, (actionPayload as any).potWinnerMap);
@@ -355,12 +401,20 @@ export const dispatchServerRoomAction = (
       break;
 
     case 'UNDO':
+      if (!isHost) {
+        console.warn('Unauthorized UNDO attempt by non-host:', requester);
+        break;
+      }
       const undone = restoreHistorySnapshot(room);
       if (undone) updated = undone;
       break;
 
     case 'TOGGLE_AFK':
       if (actionPayload.playerId) {
+        if (!isHost && requester !== actionPayload.playerId) {
+          console.warn('Unauthorized TOGGLE_AFK attempt:', requester);
+          break;
+        }
         updated.players = updated.players.map(p => {
           if (p.id === actionPayload.playerId) {
             const nextStatus = p.status === 'sitting-out' ? 'active' : 'sitting-out';
@@ -372,6 +426,10 @@ export const dispatchServerRoomAction = (
       break;
 
     case 'TRANSFER_HOST':
+      if (!isHost) {
+        console.warn('Unauthorized TRANSFER_HOST attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.targetPlayerId) {
         const nextHost = updated.players.find(p => p.id === actionPayload.targetPlayerId);
         if (nextHost) {
@@ -413,7 +471,11 @@ export const dispatchServerRoomAction = (
       break;
 
     case 'KICK_PLAYER':
-      if (actionPayload.targetPlayerId) {
+      if (!isHost) {
+        console.warn('Unauthorized KICK_PLAYER attempt by non-host:', requester);
+        break;
+      }
+      if (actionPayload.targetPlayerId && actionPayload.targetPlayerId !== updated.hostId) {
         updated.players = updated.players.filter(p => p.id !== actionPayload.targetPlayerId);
         updated.players = updated.players.map((p, idx) => ({ ...p, seatIndex: idx }));
         if (updated.players.length > 0) {
@@ -424,6 +486,10 @@ export const dispatchServerRoomAction = (
       break;
 
     case 'VOTE_CREATE':
+      if (!isHost) {
+        console.warn('Unauthorized VOTE_CREATE attempt by non-host:', requester);
+        break;
+      }
       if (actionPayload.voteTitle && actionPayload.voteOptions) {
         updated.activeVote = {
           id: `vote_${Date.now()}`,
@@ -452,6 +518,10 @@ export const dispatchServerRoomAction = (
       break;
 
     case 'VOTE_CLOSE':
+      if (!isHost) {
+        console.warn('Unauthorized VOTE_CLOSE attempt by non-host:', requester);
+        break;
+      }
       updated.activeVote = null;
       break;
   }

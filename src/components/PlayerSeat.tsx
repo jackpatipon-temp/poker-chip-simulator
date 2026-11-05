@@ -61,36 +61,70 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
         top: `${y}%`,
       }}
     >
-      {/* Latest Bet Badge (ยอดที่ลงล่าสุดเท่านั้น - วางบนผ้าสักหลาด ไม่บังชื่อและยอดคงเหลือ) */}
-      {!isFolded && Boolean(player.lastBetAmount && player.lastBetAmount > 0) && (
-        <div
-          className="seat-bet-badge"
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: `translate(calc(-50% + ${betOffsetX}px), calc(-50% + ${betOffsetY}px))`,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 3,
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.96) 0%, rgba(217, 119, 6, 0.96) 100%)',
-            color: '#000000',
-            fontWeight: 800,
-            fontSize: '0.74rem',
-            fontFamily: 'var(--font-mono)',
-            padding: '2px 7px',
-            borderRadius: 12,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.5), 0 0 6px rgba(245, 158, 11, 0.4)',
-            border: '1.5px solid rgba(255, 255, 255, 0.6)',
-            whiteSpace: 'nowrap',
-            zIndex: 16,
-            pointerEvents: 'none',
-          }}
-          title={`ยอดที่ลงล่าสุด: ${player.lastBetAmount?.toLocaleString()} ชิป`}
-        >
-          <span style={{ fontSize: '0.66rem' }}>🪙</span>
-          <span>{player.lastBetAmount?.toLocaleString()}</span>
-        </div>
+      {/* Latest Bet Badge (ยอดที่ลงล่าสุด หรือ ยอดจาก Street ก่อนหน้าแบบจางๆ) */}
+      {!isFolded && (
+        <>
+          {Boolean(player.lastBetAmount && player.lastBetAmount > 0) ? (
+            <div
+              className="seat-bet-badge"
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                transform: `translate(calc(-50% + ${betOffsetX}px), calc(-50% + ${betOffsetY}px))`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 3,
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.96) 0%, rgba(217, 119, 6, 0.96) 100%)',
+                color: '#000000',
+                fontWeight: 800,
+                fontSize: '0.74rem',
+                fontFamily: 'var(--font-mono)',
+                padding: '2px 7px',
+                borderRadius: 12,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.5), 0 0 6px rgba(245, 158, 11, 0.4)',
+                border: '1.5px solid rgba(255, 255, 255, 0.6)',
+                whiteSpace: 'nowrap',
+                zIndex: 16,
+                pointerEvents: 'none',
+              }}
+              title={`ยอดที่ลงล่าสุด: ${player.lastBetAmount?.toLocaleString()} ชิป`}
+            >
+              <span style={{ fontSize: '0.66rem' }}>🪙</span>
+              <span>{player.lastBetAmount?.toLocaleString()}</span>
+            </div>
+          ) : Boolean(player.prevStreetBet && player.prevStreetBet > 0) ? (
+            <div
+              className="seat-bet-badge prev-street"
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                transform: `translate(calc(-50% + ${betOffsetX}px), calc(-50% + ${betOffsetY}px))`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 3,
+                background: 'rgba(245, 158, 11, 0.16)',
+                color: 'rgba(255, 255, 255, 0.65)',
+                fontWeight: 700,
+                fontSize: '0.68rem',
+                fontFamily: 'var(--font-mono)',
+                padding: '1px 6px',
+                borderRadius: 10,
+                border: '1px dashed rgba(245, 158, 11, 0.45)',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                whiteSpace: 'nowrap',
+                zIndex: 14,
+                pointerEvents: 'none',
+                opacity: 0.55,
+              }}
+              title={`ยอดลงในรอบก่อนหน้า: ${player.prevStreetBet?.toLocaleString()} ชิป`}
+            >
+              <span style={{ fontSize: '0.6rem', opacity: 0.7 }}>🪙</span>
+              <span>{player.prevStreetBet?.toLocaleString()}</span>
+            </div>
+          ) : null}
+        </>
       )}
 
       {/* Main Seat Card */}

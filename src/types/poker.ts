@@ -18,6 +18,7 @@ export interface Player {
   isTurn: boolean;
   lastAction?: 'check' | 'call' | 'raise' | 'bet' | 'fold' | 'all-in';
   lastBetAmount?: number;
+  prevStreetBet?: number;
   isHost: boolean;
   isApproved: boolean;
   hasActedThisRound: boolean;

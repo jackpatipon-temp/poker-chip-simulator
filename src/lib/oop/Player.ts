@@ -14,6 +14,8 @@ export class Player {
   private _currentBet: number;
   private _totalRoundBet: number;
   private _lastBetAmount?: number;
+  private _prevStreetBet?: number;
+  private _hasSmallBlindActed: boolean;
   private _status: PlayerStatus;
   private _seatIndex: number;
   private _isDealer: boolean;
@@ -42,6 +44,8 @@ export class Player {
     this._currentBet = 0;
     this._totalRoundBet = 0;
     this._lastBetAmount = undefined;
+    this._prevStreetBet = undefined;
+    this._hasSmallBlindActed = false;
     this._status = 'active';
     this._seatIndex = seatIndex;
     this._isDealer = false;
@@ -62,6 +66,7 @@ export class Player {
   public get currentBet(): number { return this._currentBet; }
   public get totalRoundBet(): number { return this._totalRoundBet; }
   public get lastBetAmount(): number | undefined { return this._lastBetAmount; }
+  public get prevStreetBet(): number | undefined { return this._prevStreetBet; }
   public get status(): PlayerStatus { return this._status; }
   public get seatIndex(): number { return this._seatIndex; }
   public get isDealer(): boolean { return this._isDealer; }
@@ -116,7 +121,15 @@ export class Player {
     this._chips -= actualDeduction;
     this._currentBet += actualDeduction;
     this._totalRoundBet += actualDeduction;
-    this._lastBetAmount = actualDeduction;
+
+    // Small blind first action in Preflop: add the previously posted blind amount to show the total call/raise
+    if (this._isSmallBlind && !this._hasSmallBlindActed) {
+      this._lastBetAmount = this._currentBet;
+      this._hasSmallBlindActed = true;
+    } else {
+      this._lastBetAmount = actualDeduction;
+    }
+    this._prevStreetBet = undefined;
 
     if (this._chips === 0) {
       this._status = 'all-in';
@@ -139,6 +152,8 @@ export class Player {
     this._currentBet += actualDeduction;
     this._totalRoundBet += actualDeduction;
     this._lastBetAmount = actualDeduction;
+    this._hasSmallBlindActed = false;
+    this._prevStreetBet = undefined;
 
     if (this._chips === 0) {
       this._status = 'all-in';
@@ -160,6 +175,7 @@ export class Player {
     this._status = 'folded';
     this._lastAction = 'fold';
     this._lastBetAmount = undefined;
+    this._prevStreetBet = undefined;
     this._hasActedThisRound = true;
     this._isTurn = false;
   }
@@ -171,8 +187,11 @@ export class Player {
   }
 
   public resetStreetBet(): void {
+    // Preserve previous street's bet for subtle display until a new bet is made
+    this._prevStreetBet = this._lastBetAmount ?? (this._currentBet > 0 ? this._currentBet : undefined);
     this._currentBet = 0;
     this._lastBetAmount = undefined;
+    this._hasSmallBlindActed = true;
     this._hasActedThisRound = false;
     this._lastAction = undefined;
     this._isTurn = false;
@@ -186,6 +205,8 @@ export class Player {
     this._currentBet = 0;
     this._totalRoundBet = 0;
     this._lastBetAmount = undefined;
+    this._prevStreetBet = undefined;
+    this._hasSmallBlindActed = false;
     this._isDealer = this._seatIndex === dealerIndex;
     this._isSmallBlind = false;
     this._isBigBlind = false;
@@ -211,6 +232,7 @@ export class Player {
       currentBet: this._currentBet,
       totalRoundBet: this._totalRoundBet,
       lastBetAmount: this._lastBetAmount,
+      prevStreetBet: this._prevStreetBet,
       status: this._status,
       seatIndex: this._seatIndex,
       isDealer: this._isDealer,
@@ -240,6 +262,7 @@ export class Player {
     p._currentBet = data.currentBet;
     p._totalRoundBet = data.totalRoundBet;
     p._lastBetAmount = data.lastBetAmount;
+    p._prevStreetBet = data.prevStreetBet;
     p._status = data.status;
     p._isDealer = data.isDealer;
     p._isSmallBlind = data.isSmallBlind;

@@ -79,7 +79,15 @@ export const generateRoomPin = (): string => {
 };
 
 export const getServerRoom = (pin: string): RoomState | null => {
-  return roomsMap.get(pin) || null;
+  const room = roomsMap.get(pin);
+  if (!room || room.players.length === 0) {
+    if (room && room.players.length === 0) {
+      roomsMap.delete(pin);
+      roomEmitter.emit('room_deleted', pin);
+    }
+    return null;
+  }
+  return room;
 };
 
 export const createServerRoom = (
@@ -131,8 +139,12 @@ export const requestJoinServerRoom = (
   existingPlayerId?: string
 ): { room: RoomState | null; request: JoinRequest | null; player?: Player; error?: string } => {
   const room = roomsMap.get(pin);
-  if (!room) {
-    return { room: null, request: null, error: 'ไม่พบห้องที่ระบุ PIN นี้' };
+  if (!room || room.players.length === 0) {
+    if (room && room.players.length === 0) {
+      roomsMap.delete(pin);
+      roomEmitter.emit('room_deleted', pin);
+    }
+    return { room: null, request: null, error: 'ไม่พบห้องที่ระบุ หรือห้องถูกปิดแล้วเนื่องจากไม่มีผู้เล่นเหลืออยู่' };
   }
 
   // 1. Reconnection by existingPlayerId: Seamlessly reclaim existing seat with preserved chips & state!

@@ -46,7 +46,14 @@ export const getSupabaseRoom = async (pin: string): Promise<RoomState | null> =>
       .eq('id', pin)
       .maybeSingle();
     if (error || !data) return null;
-    return data.state as RoomState;
+    const room = data.state as RoomState;
+    if (room && room.players.length === 0) {
+      try {
+        await supabase.from('rooms').delete().eq('id', pin);
+      } catch {}
+      return null;
+    }
+    return room;
   } catch {
     return null;
   }
@@ -151,8 +158,13 @@ export const joinSupabaseRoom = async (
   existingPlayerId?: string
 ): Promise<{ room: RoomState | null; request: JoinRequest | null; player?: Player; error?: string }> => {
   const room = await getSupabaseRoom(pin);
-  if (!room) {
-    return { room: null, request: null, error: 'ไม่พบห้องที่ระบุ PIN นี้' };
+  if (!room || room.players.length === 0) {
+    if (room && room.players.length === 0) {
+      try {
+        await supabase.from('rooms').delete().eq('id', pin);
+      } catch {}
+    }
+    return { room: null, request: null, error: 'ไม่พบห้องที่ระบุ หรือห้องถูกปิดแล้วเนื่องจากไม่มีผู้เล่นเหลืออยู่' };
   }
 
   // 1. Reconnection by existingPlayerId
@@ -359,6 +371,12 @@ export const dispatchSupabaseRoomAction = async (
   // Delete room permanently if 0 players remain
   if (updated.players.length === 0) {
     try {
+      const ch = getOrCreateRoomChannel(pin);
+      ch.send({
+        type: 'broadcast',
+        event: 'room_deleted',
+        payload: { pin },
+      }).catch(() => {});
       await supabase.from('rooms').delete().eq('id', pin);
     } catch {}
     return null;
@@ -394,7 +412,12 @@ export const subscribeToSupabaseRoomRealtime = (
       if (payload.eventType === 'DELETE') {
         if (onDelete) onDelete();
       } else if (payload.new && (payload.new as any).state) {
-        onUpdate((payload.new as any).state as RoomState);
+        const state = (payload.new as any).state as RoomState;
+        if (state.players?.length === 0) {
+          if (onDelete) onDelete();
+        } else {
+          onUpdate(state);
+        }
       }
     }
   );
@@ -402,8 +425,16 @@ export const subscribeToSupabaseRoomRealtime = (
   // B. Instant WebSockets Broadcast (< 30ms peer sync without waiting for DB replication)
   channel.on('broadcast', { event: 'room_state' }, ({ payload }) => {
     if (payload && payload.roomId === pin) {
-      onUpdate(payload as RoomState);
+      if ((payload as RoomState).players?.length === 0) {
+        if (onDelete) onDelete();
+      } else {
+        onUpdate(payload as RoomState);
+      }
     }
+  });
+
+  channel.on('broadcast', { event: 'room_deleted' }, () => {
+    if (onDelete) onDelete();
   });
 
   // Ensure channel is actively subscribed

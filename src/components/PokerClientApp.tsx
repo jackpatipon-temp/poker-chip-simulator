@@ -526,6 +526,12 @@ export function PokerClientApp({
   const handleLeaveRoom = useCallback(async (newHostId?: string) => {
     if (currentUserId && currentPin) {
       try {
+        await dispatchRoomAction(currentPin, {
+          type: 'LEAVE',
+          playerId: currentUserId,
+          newHostId: newHostId,
+        }, roomState || undefined).catch(() => {});
+
         await fetch(`/api/rooms/${currentPin}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -549,7 +555,7 @@ export function PokerClientApp({
     setCurrentUserId(null);
     setIsSettingsOpen(false);
     setIsHostTransferModalOpen(false);
-  }, [currentPin, currentUserId]);
+  }, [currentPin, currentUserId, roomState]);
 
   const handleInitiateLeave = useCallback(() => {
     const hasOtherPlayers = (roomState?.players || []).some(p => p.id !== currentUserId);

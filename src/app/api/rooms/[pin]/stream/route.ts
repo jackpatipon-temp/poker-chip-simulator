@@ -1,6 +1,7 @@
 import { getServerRoom, subscribeToRoom } from '@/lib/server-store';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(
   request: Request,
@@ -17,51 +18,99 @@ export async function GET(
   }
 
   const encoder = new TextEncoder();
+  let isCleanedUp = false;
+  let unsubscribe: (() => void) | null = null;
+  let heartbeatInterval: NodeJS.Timeout | null = null;
+  let maxLifetimeTimeout: NodeJS.Timeout | null = null;
 
   const stream = new ReadableStream({
     start(controller) {
-      // Send initial room state immediately
-      const initialPayload = `data: ${JSON.stringify(room)}\n\n`;
-      controller.enqueue(encoder.encode(initialPayload));
+      const cleanup = () => {
+        if (isCleanedUp) return;
+        isCleanedUp = true;
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+        if (maxLifetimeTimeout) {
+          clearTimeout(maxLifetimeTimeout);
+          maxLifetimeTimeout = null;
+        }
+        if (unsubscribe) {
+          try {
+            unsubscribe();
+          } catch {}
+          unsubscribe = null;
+        }
+        try {
+          controller.close();
+        } catch {}
+      };
 
-      // Subscribe to instant broadcast events
-      const unsubscribe = subscribeToRoom(
+      // 1. Send initial room state immediately
+      try {
+        const initialPayload = `data: ${JSON.stringify(room)}\n\n`;
+        controller.enqueue(encoder.encode(initialPayload));
+      } catch {
+        cleanup();
+        return;
+      }
+
+      // 2. Subscribe to instant room updates
+      unsubscribe = subscribeToRoom(
         pin,
         (updatedRoom) => {
+          if (isCleanedUp) return;
           try {
             const updatePayload = `data: ${JSON.stringify(updatedRoom)}\n\n`;
             controller.enqueue(encoder.encode(updatePayload));
           } catch {
-            // Stream closed
+            cleanup();
           }
         },
         () => {
-          // Room deleted when 0 players remain
+          if (isCleanedUp) return;
           try {
             const deletePayload = `data: ${JSON.stringify({ deleted: true })}\n\n`;
             controller.enqueue(encoder.encode(deletePayload));
-            controller.close();
           } catch {}
+          cleanup();
         }
       );
 
-      // Heartbeat ping every 15 seconds to keep LAN connection alive
-      const heartbeatInterval = setInterval(() => {
+      // 3. Heartbeat ping every 20 seconds. If client disconnected, cleanup immediately!
+      heartbeatInterval = setInterval(() => {
+        if (isCleanedUp || request.signal.aborted) {
+          cleanup();
+          return;
+        }
         try {
           controller.enqueue(encoder.encode(': ping\n\n'));
         } catch {
-          clearInterval(heartbeatInterval);
+          cleanup();
         }
-      }, 15000);
+      }, 20000);
 
-      // Cleanup when browser closes or navigates away
+      // 4. Max connection lifetime (10 minutes): gracefully close stream to release V8 memory heap
+      // Client EventSource will automatically reconnect cleanly in 1s without user noticing
+      maxLifetimeTimeout = setTimeout(() => {
+        cleanup();
+      }, 10 * 60 * 1000);
+
+      // 5. Cleanup when request aborts
       request.signal.addEventListener('abort', () => {
-        unsubscribe();
-        clearInterval(heartbeatInterval);
-        try {
-          controller.close();
-        } catch {}
+        cleanup();
       });
+    },
+    cancel() {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      if (maxLifetimeTimeout) clearTimeout(maxLifetimeTimeout);
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch {}
+      }
+      isCleanedUp = true;
     },
   });
 

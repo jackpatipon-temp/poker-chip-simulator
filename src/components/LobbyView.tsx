@@ -30,7 +30,8 @@ interface LobbyViewProps {
     sb: number,
     bb: number,
     customPin?: string,
-    hostAvatar?: string
+    hostAvatar?: string,
+    raiseRule?: 'standard' | 'casual'
   ) => Promise<void>;
   onJoinRoom: (
     pin: string,
@@ -84,6 +85,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const [smallBlind, setSmallBlind] = useState(5);
   const [bigBlind, setBigBlind] = useState(10);
   const [customPin, setCustomPin] = useState('');
+  const [raiseRule, setRaiseRule] = useState<'standard' | 'casual'>('standard');
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -166,7 +168,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         smallBlind,
         bigBlind,
         customPin.trim() || undefined,
-        activeUser.avatarUrl
+        activeUser.avatarUrl,
+        raiseRule
       );
     } catch (err: unknown) {
       setErrorMsg((err as Error).message || 'เกิดข้อผิดพลาดในการสร้างห้อง');
@@ -893,6 +896,63 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   marginTop: 4,
                 }}
               />
+            </div>
+          </div>
+
+          {/* Raise Rule Option (สากล vs บ้านๆ) */}
+          <div>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>กฎการเกทับ (Raise Rule)</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => {
+                  sound.playChip();
+                  setRaiseRule('standard');
+                }}
+                style={{
+                  padding: '10px 8px',
+                  fontSize: '0.82rem',
+                  borderRadius: 10,
+                  background: raiseRule === 'standard' ? 'rgba(37, 99, 235, 0.25)' : 'rgba(0,0,0,0.3)',
+                  borderColor: raiseRule === 'standard' ? '#3b82f6' : 'var(--border-subtle)',
+                  color: raiseRule === 'standard' ? '#93c5fd' : 'var(--text-muted)',
+                  fontWeight: raiseRule === 'standard' ? 700 : 500,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2,
+                  cursor: 'pointer',
+                }}
+              >
+                <span>🌐 แบบสากล</span>
+                <span style={{ fontSize: '0.68rem', opacity: 0.8 }}>+Min Raise มาตรฐาน</span>
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => {
+                  sound.playChip();
+                  setRaiseRule('casual');
+                }}
+                style={{
+                  padding: '10px 8px',
+                  fontSize: '0.82rem',
+                  borderRadius: 10,
+                  background: raiseRule === 'casual' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(0,0,0,0.3)',
+                  borderColor: raiseRule === 'casual' ? '#f59e0b' : 'var(--border-subtle)',
+                  color: raiseRule === 'casual' ? '#fde68a' : 'var(--text-muted)',
+                  fontWeight: raiseRule === 'casual' ? 700 : 500,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2,
+                  cursor: 'pointer',
+                }}
+              >
+                <span>🏠 แบบบ้านๆ</span>
+                <span style={{ fontSize: '0.68rem', opacity: 0.8 }}>เท่าไหร่ก็ได้ &gt; ล่าสุด</span>
+              </button>
             </div>
           </div>
 

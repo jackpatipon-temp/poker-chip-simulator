@@ -9,6 +9,7 @@ import {
   randomizeRoomDealer,
   swapPlayerSeats,
   movePlayerSeat,
+  setRoomNextBlinds,
 } from './poker-engine';
 
 import { EventEmitter } from 'events';
@@ -87,7 +88,8 @@ export const createServerRoom = (
   hostAvatar: string,
   startingChips: number = 1000,
   smallBlind: number = 5,
-  bigBlind: number = 10
+  bigBlind: number = 10,
+  raiseRule: 'standard' | 'casual' = 'standard'
 ): RoomState => {
   const hostPlayer: Player = {
     id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -107,12 +109,12 @@ export const createServerRoom = (
     hasActedThisRound: false,
   };
 
-  const newRoom = createInitialRoomState(pin, hostPlayer);
+  const newRoom = createInitialRoomState(pin, hostPlayer, raiseRule);
   newRoom.smallBlind = smallBlind;
   newRoom.bigBlind = bigBlind;
   newRoom.pot = 0;
   newRoom.currentHighestBet = 0;
-  newRoom.minRaise = bigBlind;
+  newRoom.minRaise = raiseRule === 'casual' ? 1 : bigBlind;
   newRoom.players = [hostPlayer]; // Real host only
 
   roomsMap.set(pin, newRoom);
@@ -270,7 +272,8 @@ export const dispatchServerRoomAction = (
       | 'RANDOMIZE_DEALER'
       | 'SWAP_SEATS'
       | 'MOVE_SEAT'
-      | 'TRANSFER_HOST';
+      | 'TRANSFER_HOST'
+      | 'SET_NEXT_BLINDS';
     playerId?: string;
     targetPlayerId?: string;
     newHostId?: string;
@@ -278,7 +281,10 @@ export const dispatchServerRoomAction = (
     action?: 'fold' | 'check' | 'call' | 'raise' | 'all-in';
     raiseAmount?: number;
     totalAmount?: number;
+    smallBlind?: number;
+    bigBlind?: number;
     winnerIds?: string[];
+    potWinnerMap?: Record<string, string[]>;
     voteTitle?: string;
     voteOptions?: string[];
     voteOptionId?: string;
@@ -290,6 +296,12 @@ export const dispatchServerRoomAction = (
   let updated = room;
 
   switch (actionPayload.type) {
+    case 'SET_NEXT_BLINDS':
+      if (actionPayload.smallBlind && actionPayload.bigBlind) {
+        updated = setRoomNextBlinds(room, actionPayload.smallBlind, actionPayload.bigBlind);
+      }
+      break;
+
     case 'ACTION':
       if (actionPayload.playerId && actionPayload.action) {
         const raiseVal = actionPayload.totalAmount ?? actionPayload.raiseAmount;
@@ -326,7 +338,7 @@ export const dispatchServerRoomAction = (
     case 'SHOWDOWN_WINNERS':
       if (actionPayload.winnerIds) {
         const startNext = (actionPayload as any).startNextHand !== false;
-        updated = awardPotToWinners(room, actionPayload.winnerIds, startNext);
+        updated = awardPotToWinners(room, actionPayload.winnerIds, startNext, (actionPayload as any).potWinnerMap);
       }
       break;
 

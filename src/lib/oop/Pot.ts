@@ -3,8 +3,10 @@ import { Player } from './Player';
 
 /**
  * OOP Class: Pot
- * Encapsulates the poker pot accounting logic, including main pot accumulation,
- * side pot isolation for all-in scenarios, and distribution to showdown winners.
+ * Encapsulates poker pot accounting logic, including:
+ * - Dynamic Main Pot & Side Pots calculation based on All-In bet levels
+ * - Isolation of side pots for capped all-in players
+ * - Fair distribution of chips to winners with odd-chip rule
  */
 export class Pot {
   private _mainPot: number;
@@ -29,19 +31,178 @@ export class Pot {
     }
   }
 
+  public setSidePots(pots: SidePot[]): void {
+    this._sidePots = [...pots];
+  }
+
   public reset(): void {
     this._mainPot = 0;
     this._sidePots = [];
   }
 
   /**
-   * Distributes the pot equally among eligible winners.
-   * Odd chip remainder is awarded to the first winner (standard poker rule).
+   * Recalculates Main Pot and Side Pots dynamically based on players' totalRoundBet
+   * and All-In statuses.
    */
-  public awardWinners(winners: Player[]): { sharePerWinner: number; remainder: number } {
-    if (winners.length === 0 || this._mainPot === 0) {
+  public recalculatePots(players: Player[]): SidePot[] {
+    const contributingPlayers = players.filter(p => p.totalRoundBet > 0);
+    if (contributingPlayers.length === 0) {
+      this._sidePots = [];
+      return [];
+    }
+
+    // Check if any player who contributed is All-In
+    const hasAllIn = contributingPlayers.some(p => p.status === 'all-in');
+    const nonFolded = contributingPlayers.filter(p => p.status !== 'folded');
+
+    // If no one is all-in or only 1 active player remains, everything is in 1 Main Pot
+    if (!hasAllIn || nonFolded.length <= 1) {
+      const singlePot: SidePot = {
+        id: 'main',
+        name: 'Main Pot (กองหลัก)',
+        amount: this._mainPot,
+        eligiblePlayerIds: nonFolded.map(p => p.id),
+      };
+      this._sidePots = [singlePot];
+      return this._sidePots;
+    }
+
+    // Sort distinct wager levels ascending
+    const wagerLevels = Array.from(
+      new Set(contributingPlayers.map(p => p.totalRoundBet))
+    ).sort((a, b) => a - b);
+
+    const rawPots: { amount: number; eligiblePlayerIds: string[] }[] = [];
+    let prevLevel = 0;
+
+    for (const level of wagerLevels) {
+      const step = level - prevLevel;
+      if (step <= 0) continue;
+
+      let potAmount = 0;
+      const eligibleIds: string[] = [];
+
+      for (const p of contributingPlayers) {
+        if (p.totalRoundBet >= level) {
+          potAmount += step;
+        } else if (p.totalRoundBet > prevLevel) {
+          potAmount += (p.totalRoundBet - prevLevel);
+        }
+
+        if (p.totalRoundBet >= level && p.status !== 'folded') {
+          eligibleIds.push(p.id);
+        }
+      }
+
+      if (potAmount > 0) {
+        rawPots.push({
+          amount: potAmount,
+          eligiblePlayerIds: eligibleIds,
+        });
+      }
+      prevLevel = level;
+    }
+
+    // Merge adjacent pots that have the exact same eligible players
+    const mergedPots: SidePot[] = [];
+    for (const raw of rawPots) {
+      if (raw.eligiblePlayerIds.length === 0) {
+        // Dead money: fold it into previous pot if available
+        if (mergedPots.length > 0) {
+          mergedPots[mergedPots.length - 1].amount += raw.amount;
+        }
+        continue;
+      }
+
+      const prev = mergedPots[mergedPots.length - 1];
+      const sameEligible =
+        prev &&
+        prev.eligiblePlayerIds.length === raw.eligiblePlayerIds.length &&
+        prev.eligiblePlayerIds.every(id => raw.eligiblePlayerIds.includes(id));
+
+      if (sameEligible) {
+        prev.amount += raw.amount;
+      } else {
+        const index = mergedPots.length;
+        mergedPots.push({
+          id: index === 0 ? 'main' : `side_${index}`,
+          name: index === 0 ? 'Main Pot (กองหลัก)' : `Side Pot ${index} (กองข้างเคียง ${index})`,
+          amount: raw.amount,
+          eligiblePlayerIds: raw.eligiblePlayerIds,
+        });
+      }
+    }
+
+    // Reconcile total with this._mainPot if any rounding difference
+    const totalPots = mergedPots.reduce((sum, p) => sum + p.amount, 0);
+    if (this._mainPot > totalPots && mergedPots.length > 0) {
+      mergedPots[0].amount += (this._mainPot - totalPots);
+    }
+
+    this._sidePots = mergedPots;
+    return this._sidePots;
+  }
+
+  /**
+   * Distributes the pot equally among eligible winners.
+   * If side pots exist, awards each pot to its eligible winners.
+   */
+  public awardWinners(
+    winners: Player[],
+    potWinnerMap?: Record<string, string[]> // potId -> winnerIds
+  ): { sharePerWinner: number; remainder: number } {
+    if (this._mainPot === 0) {
       return { sharePerWinner: 0, remainder: 0 };
     }
+
+    // Case 1: Specific Pot-by-Pot winner allocation (Side Pots)
+    if (this._sidePots.length > 1 && potWinnerMap) {
+      for (const pot of this._sidePots) {
+        const assignedWinnerIds = potWinnerMap[pot.id || ''] || potWinnerMap['main'] || [];
+        const eligibleWinners = winners.filter(
+          w => assignedWinnerIds.includes(w.id) && pot.eligiblePlayerIds.includes(w.id)
+        );
+
+        // Fallback: If no assigned winner is eligible, give to first eligible player
+        const finalWinners =
+          eligibleWinners.length > 0
+            ? eligibleWinners
+            : winners.filter(w => pot.eligiblePlayerIds.includes(w.id));
+
+        if (finalWinners.length > 0 && pot.amount > 0) {
+          const share = Math.floor(pot.amount / finalWinners.length);
+          const rem = pot.amount % finalWinners.length;
+          finalWinners.forEach((w, idx) => {
+            w.addChips(share + (idx === 0 ? rem : 0));
+          });
+          pot.amount = 0;
+        }
+      }
+      this._mainPot = 0;
+      this._sidePots = [];
+      return { sharePerWinner: 0, remainder: 0 };
+    }
+
+    // Case 2: Multi-pot with simple winner selection (award each pot to eligible winners)
+    if (this._sidePots.length > 1) {
+      for (const pot of this._sidePots) {
+        const eligibleWinners = winners.filter(w => pot.eligiblePlayerIds.includes(w.id));
+        if (eligibleWinners.length > 0 && pot.amount > 0) {
+          const share = Math.floor(pot.amount / eligibleWinners.length);
+          const rem = pot.amount % eligibleWinners.length;
+          eligibleWinners.forEach((w, idx) => {
+            w.addChips(share + (idx === 0 ? rem : 0));
+          });
+          pot.amount = 0;
+        }
+      }
+      this._mainPot = 0;
+      this._sidePots = [];
+      return { sharePerWinner: 0, remainder: 0 };
+    }
+
+    // Case 3: Classic Single Main Pot
+    if (winners.length === 0) return { sharePerWinner: 0, remainder: 0 };
 
     const count = winners.length;
     const share = Math.floor(this._mainPot / count);
@@ -53,6 +214,7 @@ export class Pot {
     });
 
     this._mainPot = 0;
+    this._sidePots = [];
     return { sharePerWinner: share, remainder };
   }
 
@@ -69,4 +231,5 @@ export class Pot {
     return pot;
   }
 }
+
 

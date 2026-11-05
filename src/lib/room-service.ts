@@ -39,11 +39,12 @@ export const createRoom = async (
   hostAvatar: string,
   startingChips: number = 1000,
   smallBlind: number = 5,
-  bigBlind: number = 10
+  bigBlind: number = 10,
+  raiseRule: 'standard' | 'casual' = 'standard'
 ): Promise<{ pin: string; room: RoomState }> => {
   if (isSupabaseConfigured()) {
     try {
-      const sbRoom = await createSupabaseRoom(pin, hostName, hostAvatar, startingChips, smallBlind, bigBlind);
+      const sbRoom = await createSupabaseRoom(pin, hostName, hostAvatar, startingChips, smallBlind, bigBlind, raiseRule);
       if (sbRoom) {
         return { pin, room: sbRoom };
       }
@@ -63,6 +64,7 @@ export const createRoom = async (
       smallBlind,
       bigBlind,
       customPin: pin,
+      raiseRule,
     }),
   });
 

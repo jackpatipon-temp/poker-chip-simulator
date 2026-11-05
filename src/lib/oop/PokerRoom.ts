@@ -16,7 +16,10 @@ export class PokerRoom {
   private _isHostPlaying: boolean;
   private _smallBlind: number;
   private _bigBlind: number;
+  private _nextSmallBlind?: number;
+  private _nextBigBlind?: number;
   private _ante: number;
+  private _raiseRule: 'standard' | 'casual';
   private _street: Street;
   private _currentHighestBet: number;
   private _minRaise: number;
@@ -35,7 +38,8 @@ export class PokerRoom {
     hostPlayer: Player,
     smallBlind: number = 5,
     bigBlind: number = 10,
-    roomName: string = 'Poker Party Room'
+    roomName: string = 'Poker Party Room',
+    raiseRule: 'standard' | 'casual' = 'standard'
   ) {
     this._roomId = roomId;
     this._roomName = roomName;
@@ -43,7 +47,10 @@ export class PokerRoom {
     this._isHostPlaying = true;
     this._smallBlind = smallBlind;
     this._bigBlind = bigBlind;
+    this._nextSmallBlind = undefined;
+    this._nextBigBlind = undefined;
     this._ante = 0;
+    this._raiseRule = raiseRule;
     this._street = 'preflop';
     this._currentHighestBet = bigBlind;
     this._minRaise = bigBlind;
@@ -78,8 +85,22 @@ export class PokerRoom {
   public get activeVote(): Vote | null { return this._activeVote; }
   public get winnerIds(): string[] { return [...this._winnerIds]; }
   public get isFirstHandStarted(): boolean { return this._isFirstHandStarted; }
+  public get raiseRule(): 'standard' | 'casual' { return this._raiseRule; }
+  public get nextSmallBlind(): number | undefined { return this._nextSmallBlind; }
+  public get nextBigBlind(): number | undefined { return this._nextBigBlind; }
 
   // --- Mutators ---
+  public setRaiseRule(rule: 'standard' | 'casual'): void {
+    this._raiseRule = rule;
+  }
+
+  public setNextBlinds(sb: number, bb: number): void {
+    if (sb > 0 && bb > sb) {
+      this._nextSmallBlind = sb;
+      this._nextBigBlind = bb;
+    }
+  }
+
   public setStreet(street: Street): void {
     this._street = street;
   }
@@ -208,6 +229,15 @@ export class PokerRoom {
     const eligiblePlayers = this.getApprovedPlayersWithChips();
     if (eligiblePlayers.length < 2) return false;
 
+    // Apply next scheduled blinds if set
+    if (this._nextSmallBlind && this._nextBigBlind) {
+      this._smallBlind = this._nextSmallBlind;
+      this._bigBlind = this._nextBigBlind;
+      this._minRaise = this._raiseRule === 'casual' ? 1 : this._bigBlind;
+      this._nextSmallBlind = undefined;
+      this._nextBigBlind = undefined;
+    }
+
     this.saveHistory('Start New Hand');
     this.rotateDealer();
 
@@ -236,8 +266,9 @@ export class PokerRoom {
 
     this._pot.reset();
     this._pot.addChips(sbAmount + bbAmount);
+    this._pot.recalculatePots(this._players);
     this._currentHighestBet = this._bigBlind;
-    this._minRaise = this._bigBlind;
+    this._minRaise = this._raiseRule === 'casual' ? 1 : this._bigBlind;
     this._street = 'preflop';
     this._winnerIds = [];
 
@@ -282,7 +313,8 @@ export class PokerRoom {
     // Reset round bets
     this._players.forEach(p => p.resetStreetBet());
     this._currentHighestBet = 0;
-    this._minRaise = this._bigBlind;
+    this._minRaise = this._raiseRule === 'casual' ? 1 : this._bigBlind;
+    this._pot.recalculatePots(this._players);
 
     const inHand = this.getPlayersInHand();
     const withChips = inHand.filter(p => p.chips > 0);
@@ -321,6 +353,9 @@ export class PokerRoom {
     this.saveHistory(`Player Action: ${action.actionName}`);
     action.execute(this);
 
+    // Keep side pots updated with every player action
+    this._pot.recalculatePots(this._players);
+
     if (this._street !== 'showdown') {
       if (this.isBettingRoundComplete()) {
         this.progressToNextStreet();
@@ -333,12 +368,12 @@ export class PokerRoom {
     }
   }
 
-  public awardPotToWinners(winnerIds: string[]): void {
+  public awardPotToWinners(winnerIds: string[], potWinnerMap?: Record<string, string[]>): void {
     if (winnerIds.length === 0 || this._pot.amount === 0) return;
     this.saveHistory(`Award pot to ${winnerIds.length} winner(s)`);
 
     const winners = this._players.filter(p => winnerIds.includes(p.id));
-    this._pot.awardWinners(winners);
+    this._pot.awardWinners(winners, potWinnerMap);
     this._winnerIds = winnerIds;
   }
 
@@ -427,7 +462,10 @@ export class PokerRoom {
       isHostPlaying: this._isHostPlaying,
       smallBlind: this._smallBlind,
       bigBlind: this._bigBlind,
+      nextSmallBlind: this._nextSmallBlind,
+      nextBigBlind: this._nextBigBlind,
       ante: this._ante,
+      raiseRule: this._raiseRule,
       street: this._street,
       pot: this._pot.amount,
       currentHighestBet: this._currentHighestBet,
@@ -456,10 +494,13 @@ export class PokerRoom {
       hostPlayer,
       state.smallBlind,
       state.bigBlind,
-      state.roomName
+      state.roomName,
+      state.raiseRule || 'standard'
     );
 
     room._isHostPlaying = state.isHostPlaying;
+    room._nextSmallBlind = state.nextSmallBlind;
+    room._nextBigBlind = state.nextBigBlind;
     room._ante = state.ante;
     room._street = state.street;
     room._currentHighestBet = state.currentHighestBet;

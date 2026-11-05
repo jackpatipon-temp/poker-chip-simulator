@@ -4,7 +4,7 @@ import { createServerRoom, generateRoomPin, getServerRoom } from '@/lib/server-s
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { hostName, hostAvatar, startingChips, smallBlind, bigBlind, customPin } = body;
+    const { hostName, hostAvatar, startingChips, smallBlind, bigBlind, customPin, raiseRule } = body;
 
     const pin = customPin ? customPin.toString().trim() : generateRoomPin();
     const room = createServerRoom(
@@ -13,7 +13,8 @@ export async function POST(request: Request) {
       hostAvatar,
       startingChips || 1000,
       smallBlind || 5,
-      bigBlind || 10
+      bigBlind || 10,
+      raiseRule || 'standard'
     );
 
     return NextResponse.json({ success: true, pin, room });

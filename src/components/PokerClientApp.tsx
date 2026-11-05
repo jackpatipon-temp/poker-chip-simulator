@@ -15,7 +15,7 @@ import { LobbyView } from '@/components/LobbyView';
 import { HostTransferModal } from '@/components/HostTransferModal';
 import { subscribeToSupabaseRoomRealtime } from '@/lib/supabase-room';
 import { createRoom, joinRoom, dispatchRoomAction, fetchRoomState } from '@/lib/room-service';
-import { handlePlayerAction, awardPotToWinners, startNewHand } from '@/lib/poker-engine';
+import { handlePlayerAction, awardPotToWinners, startNewHand, setRoomNextBlinds } from '@/lib/poker-engine';
 import { Check, X, Loader2 } from 'lucide-react';
 import { sound, triggerHaptic } from '@/lib/sound';
 import {
@@ -244,7 +244,8 @@ export function PokerClientApp({
     sb: number,
     bb: number,
     customPin?: string,
-    hostAvatar?: string
+    hostAvatar?: string,
+    raiseRule?: 'standard' | 'casual'
   ) => {
     const avatar =
       hostAvatar ||
@@ -253,7 +254,7 @@ export function PokerClientApp({
     const finalHostName = (hostName || authUser?.name || 'Host Admin').trim();
 
     const roomPin = customPin || Math.floor(1000 + Math.random() * 9000).toString();
-    const result = await createRoom(roomPin, finalHostName, avatar, chips, sb, bb);
+    const result = await createRoom(roomPin, finalHostName, avatar, chips, sb, bb, raiseRule);
 
     const hostPlayerId = result.room.players[0].id;
     setCurrentPin(result.pin);
@@ -422,9 +423,17 @@ export function PokerClientApp({
   }, [sendRoomAction]);
 
   const handleConfirmWinners = useCallback(
-    (winnerIds: string[]) => {
-      setRoomState(prev => (prev ? awardPotToWinners(prev, winnerIds, true) : prev));
-      sendRoomAction({ type: 'SHOWDOWN_WINNERS', winnerIds, startNextHand: true });
+    (winnerIds: string[], potWinnerMap?: Record<string, string[]>) => {
+      setRoomState(prev => (prev ? awardPotToWinners(prev, winnerIds, true, potWinnerMap) : prev));
+      sendRoomAction({ type: 'SHOWDOWN_WINNERS', winnerIds, startNextHand: true, potWinnerMap });
+    },
+    [sendRoomAction]
+  );
+
+  const handleUpdateBlinds = useCallback(
+    (sb: number, bb: number) => {
+      setRoomState(prev => (prev ? setRoomNextBlinds(prev, sb, bb) : prev));
+      sendRoomAction({ type: 'SET_NEXT_BLINDS', smallBlind: sb, bigBlind: bb });
     },
     [sendRoomAction]
   );
@@ -747,6 +756,7 @@ export function PokerClientApp({
             isMyTurn={isMyTurn}
             isHandStarted={Boolean(roomState.isFirstHandStarted && roomState.street !== 'showdown')}
             isSubmitting={isSubmittingAction}
+            raiseRule={roomState.raiseRule}
             onFold={handleFold}
             onCheck={handleCheck}
             onCall={handleCall}
@@ -761,6 +771,7 @@ export function PokerClientApp({
             minRaise={roomState.minRaise}
             bigBlind={roomState.bigBlind}
             pot={roomState.pot}
+            raiseRule={roomState.raiseRule}
             onClose={() => setIsRaiseModalOpen(false)}
             onConfirmRaise={handleConfirmRaise}
           />
@@ -769,6 +780,7 @@ export function PokerClientApp({
           <ShowdownModal
             isOpen={roomState.street === 'showdown'}
             pot={roomState.pot}
+            sidePots={roomState.sidePots}
             players={roomState.players}
             winnerIds={roomState.winnerIds || []}
             isHost={isHost}
@@ -787,7 +799,7 @@ export function PokerClientApp({
             onUndo={handleUndo}
             onCreateVote={handleCreateVote}
             onToggleHostPlaying={() => {}}
-            onUpdateBlinds={() => {}}
+            onUpdateBlinds={handleUpdateBlinds}
             onSetDealer={handleSetDealer}
             onRandomizeDealer={handleRandomizeDealer}
             onMoveSeat={handleMoveSeat}

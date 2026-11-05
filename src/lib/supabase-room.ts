@@ -11,6 +11,7 @@ import {
   randomizeRoomDealer,
   swapPlayerSeats,
   movePlayerSeat,
+  setRoomNextBlinds,
 } from './poker-engine';
 
 export interface SupabaseRoomRow {
@@ -105,7 +106,8 @@ export const createSupabaseRoom = async (
   hostAvatar: string,
   startingChips: number = 1000,
   smallBlind: number = 5,
-  bigBlind: number = 10
+  bigBlind: number = 10,
+  raiseRule: 'standard' | 'casual' = 'standard'
 ): Promise<RoomState | null> => {
   const hostPlayer: Player = {
     id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -125,12 +127,12 @@ export const createSupabaseRoom = async (
     hasActedThisRound: false,
   };
 
-  const newRoom = createInitialRoomState(pin, hostPlayer);
+  const newRoom = createInitialRoomState(pin, hostPlayer, raiseRule);
   newRoom.smallBlind = smallBlind;
   newRoom.bigBlind = bigBlind;
   newRoom.pot = 0;
   newRoom.currentHighestBet = 0;
-  newRoom.minRaise = bigBlind;
+  newRoom.minRaise = raiseRule === 'casual' ? 1 : bigBlind;
   newRoom.players = [hostPlayer];
 
   const ok = await saveSupabaseRoom(pin, newRoom);
@@ -235,6 +237,11 @@ export const dispatchSupabaseRoomAction = async (
   let updated = { ...room };
 
   switch (actionPayload.type) {
+    case 'SET_NEXT_BLINDS':
+      if (actionPayload.smallBlind && actionPayload.bigBlind) {
+        updated = setRoomNextBlinds(room, actionPayload.smallBlind, actionPayload.bigBlind);
+      }
+      break;
     case 'ACTION':
       if (actionPayload.playerId && actionPayload.action) {
         const raiseVal = actionPayload.totalAmount ?? actionPayload.raiseAmount;
@@ -263,7 +270,7 @@ export const dispatchSupabaseRoomAction = async (
     case 'SHOWDOWN_WINNERS':
       if (actionPayload.winnerIds) {
         const startNext = actionPayload.startNextHand !== false;
-        updated = awardPotToWinners(room, actionPayload.winnerIds, startNext);
+        updated = awardPotToWinners(room, actionPayload.winnerIds, startNext, actionPayload.potWinnerMap);
       }
       break;
     case 'UNDO':

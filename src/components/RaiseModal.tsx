@@ -12,6 +12,7 @@ interface RaiseModalProps {
   minRaise: number;
   bigBlind: number;
   pot: number;
+  raiseRule?: 'standard' | 'casual';
   onClose: () => void;
   onConfirmRaise: (totalAmount: number) => void;
 }
@@ -23,13 +24,19 @@ export const RaiseModal: React.FC<RaiseModalProps> = ({
   minRaise,
   bigBlind,
   pot,
+  raiseRule = 'standard',
   onClose,
   onConfirmRaise,
 }) => {
+  const isCasual = raiseRule === 'casual';
   const maxPossible = (player?.chips ?? 0) + (player?.currentBet ?? 0);
   const minPossible = Math.min(
     maxPossible,
-    currentHighestBet === 0 ? bigBlind : currentHighestBet + minRaise
+    currentHighestBet === 0
+      ? bigBlind
+      : isCasual
+      ? currentHighestBet + 1
+      : currentHighestBet + minRaise
   );
 
   const [raiseAmount, setRaiseAmount] = useState<number>(minPossible);
@@ -85,19 +92,29 @@ export const RaiseModal: React.FC<RaiseModalProps> = ({
         {/* Informative Poker Tip */}
         <div
           style={{
-            background: 'rgba(59, 130, 246, 0.12)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
+            background: isCasual ? 'rgba(245, 158, 11, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+            border: isCasual ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
             borderRadius: 10,
             padding: '8px 12px',
             fontSize: '0.74rem',
-            color: '#bfdbfe',
+            color: isCasual ? '#fef08a' : '#bfdbfe',
             lineHeight: 1.4,
           }}
         >
-          💡 <strong>กฎการ Raise</strong>: ค่าเริ่มต้นตั้งตามยอดสูงสุดของตานี้{' '}
-          <strong style={{ color: '#fef08a' }}>{currentHighestBet}</strong> + ขั้นต่ำ{' '}
-          <strong style={{ color: '#fef08a' }}>{minRaise}</strong> รวมเป็นอย่างน้อย{' '}
-          <strong style={{ color: '#6ee7b7' }}>{minPossible}</strong> (ไม่สามารถใส่ยอดต่ำกว่าเงินเดิมพันปัจจุบันได้)
+          {isCasual ? (
+            <>
+              💡 <strong>กฎการ Raise (แบบบ้านๆ)</strong>: เกทับเท่าไหร่ก็ได้ ขอแค่มากกว่ายอดเดิมพันปัจจุบัน{' '}
+              <strong style={{ color: '#fff' }}>{currentHighestBet}</strong> (ขั้นต่ำ{' '}
+              <strong style={{ color: '#6ee7b7' }}>{minPossible}</strong>)
+            </>
+          ) : (
+            <>
+              💡 <strong>กฎการ Raise (แบบสากล)</strong>: ยอดสูงสุดตานี้{' '}
+              <strong style={{ color: '#fef08a' }}>{currentHighestBet}</strong> + ขั้นต่ำ{' '}
+              <strong style={{ color: '#fef08a' }}>{minRaise}</strong> รวมเป็นอย่างน้อย{' '}
+              <strong style={{ color: '#6ee7b7' }}>{minPossible}</strong>
+            </>
+          )}
         </div>
 
         {/* Big Number Display */}

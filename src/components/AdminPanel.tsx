@@ -45,8 +45,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const [chipInputs, setChipInputs] = useState<Record<string, number>>({});
   const [voteTitle, setVoteTitle] = useState('');
-  const [sbInput, setSbInput] = useState(state.smallBlind);
-  const [bbInput, setBbInput] = useState(state.bigBlind);
+  const [sbInput, setSbInput] = useState(state.nextSmallBlind ?? state.smallBlind);
+  const [bbInput, setBbInput] = useState(state.nextBigBlind ?? state.bigBlind);
   const [activeTab, setActiveTab] = useState<'seating' | 'requests' | 'vote' | 'game'>(initialTab);
 
   if (!isOpen) return null;
@@ -590,15 +590,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
 
             {/* Blinds Adjustment */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>ปรับขนาด Blinds:</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: 'rgba(0,0,0,0.25)', padding: 12, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>ตั้งค่า Blinds ตาถัดไป:</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  ปัจจุบัน: {state.smallBlind} / {state.bigBlind}
+                </span>
+              </div>
+              {state.nextSmallBlind !== undefined && state.nextBigBlind !== undefined && (
+                <div style={{ fontSize: '0.75rem', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.12)', padding: '4px 8px', borderRadius: 6 }}>
+                  ⏳ ตาถัดไปจะปรับเป็น: {state.nextSmallBlind} / {state.nextBigBlind} (หลังจบตา)
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
-                  <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Small Blind</label>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Small Blind (ตาถัดไป)</label>
                   <input
                     type="number"
+                    min={1}
                     value={sbInput}
-                    onChange={(e) => setSbInput(Number(e.target.value))}
+                    onChange={(e) => setSbInput(Math.max(1, Number(e.target.value)))}
                     style={{
                       width: '100%',
                       background: 'rgba(0,0,0,0.4)',
@@ -611,11 +622,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Big Blind</label>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Big Blind (ตาถัดไป)</label>
                   <input
                     type="number"
+                    min={2}
                     value={bbInput}
-                    onChange={(e) => setBbInput(Number(e.target.value))}
+                    onChange={(e) => setBbInput(Math.max(2, Number(e.target.value)))}
                     style={{
                       width: '100%',
                       background: 'rgba(0,0,0,0.4)',
@@ -631,12 +643,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <button
                 type="button"
                 className="secondary-btn"
+                style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(59, 130, 246, 0.3))', borderColor: '#a78bfa' }}
                 onClick={() => {
                   sound.playChip();
                   onUpdateBlinds(sbInput, bbInput);
                 }}
               >
-                บันทึกค่า Blinds
+                บันทึกค่า Blinds สำหรับตาถัดไป
               </button>
             </div>
           </div>

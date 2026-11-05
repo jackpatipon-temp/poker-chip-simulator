@@ -2,17 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Trophy, Check, Undo2, Award } from 'lucide-react';
-import { Player } from '@/types/poker';
+import { Trophy, Check, Undo2, Award, Coins } from 'lucide-react';
+import { Player, SidePot } from '@/types/poker';
 import { sound, triggerHaptic } from '@/lib/sound';
 
 interface ShowdownModalProps {
   isOpen: boolean;
   pot: number;
+  sidePots?: SidePot[];
   players: Player[];
   winnerIds: string[];
   isHost: boolean;
-  onConfirmWinners: (winnerIds: string[]) => void;
+  onConfirmWinners: (winnerIds: string[], potWinnerMap?: Record<string, string[]>) => void;
   onNextHand: () => void;
   onUndo: () => void;
 }
@@ -20,6 +21,7 @@ interface ShowdownModalProps {
 export const ShowdownModal: React.FC<ShowdownModalProps> = ({
   isOpen,
   pot,
+  sidePots,
   players,
   winnerIds: initialWinnerIds,
   isHost,
@@ -28,6 +30,7 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
   onUndo,
 }) => {
   const [selectedWinners, setSelectedWinners] = useState<string[]>(initialWinnerIds || []);
+  const [potWinnerMap, setPotWinnerMap] = useState<Record<string, string[]>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Active or eligible players (non-folded)
@@ -36,20 +39,41 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
   const isFoldWin = eligiblePlayers.length === 1;
   const soleWinner = isFoldWin ? eligiblePlayers[0] : null;
 
-  // Keep selected winners in sync when modal opens or initialWinnerIds changes
+  const hasMultiplePots = Boolean(sidePots && sidePots.length > 1);
+  const totalPotAmount = hasMultiplePots
+    ? sidePots!.reduce((sum, p) => sum + p.amount, 0)
+    : pot;
+
+  // Keep selected winners in sync when modal opens
   useEffect(() => {
     if (initialWinnerIds && initialWinnerIds.length > 0) {
       setSelectedWinners(initialWinnerIds);
     } else if (eligiblePlayers.length === 1) {
       setSelectedWinners([eligiblePlayers[0].id]);
     }
+
+    // Default setup for side pots if multiple pots exist
+    if (sidePots && sidePots.length > 1) {
+      const initialMap: Record<string, string[]> = {};
+      sidePots.forEach((p, idx) => {
+        const key = p.id || String(idx);
+        // If single eligible player in this pot, preselect them
+        if (p.eligiblePlayerIds.length === 1) {
+          initialMap[key] = [p.eligiblePlayerIds[0]];
+        } else {
+          initialMap[key] = [];
+        }
+      });
+      setPotWinnerMap(initialMap);
+    }
+
     setIsSubmitting(false);
-  }, [isOpen, initialWinnerIds, eligiblePlayers.length]);
+  }, [isOpen, initialWinnerIds, eligiblePlayers.length, sidePots]);
 
   // If pot is 0 and it's not a fold win, showdown is already finished -> do not show modal
-  if (!isOpen || (pot === 0 && !isFoldWin)) return null;
+  if (!isOpen || (totalPotAmount === 0 && !isFoldWin)) return null;
 
-  const toggleWinner = (playerId: string) => {
+  const toggleSinglePotWinner = (playerId: string) => {
     sound.playChip();
     triggerHaptic(20);
     setSelectedWinners(prev => {
@@ -61,17 +85,58 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
     });
   };
 
+  const toggleSidePotWinner = (potKey: string, playerId: string) => {
+    sound.playChip();
+    triggerHaptic(20);
+    setPotWinnerMap(prev => {
+      const current = prev[potKey] || [];
+      const updated = current.includes(playerId)
+        ? current.filter(id => id !== playerId)
+        : [...current, playerId];
+      return { ...prev, [potKey]: updated };
+    });
+  };
+
+  // Quick action: select a single overall winner for all pots they are eligible for
+  const handleSelectOverallWinner = (playerId: string) => {
+    sound.playChip();
+    triggerHaptic(25);
+    if (!sidePots) return;
+    const nextMap: Record<string, string[]> = {};
+    sidePots.forEach((p, idx) => {
+      const key = p.id || String(idx);
+      if (p.eligiblePlayerIds.includes(playerId)) {
+        nextMap[key] = [playerId];
+      } else {
+        nextMap[key] = potWinnerMap[key] || [];
+      }
+    });
+    setPotWinnerMap(nextMap);
+  };
+
+  const allPotsHaveWinners = hasMultiplePots
+    ? sidePots!.every((p, idx) => {
+        const key = p.id || String(idx);
+        return (potWinnerMap[key]?.length || 0) > 0;
+      })
+    : selectedWinners.length > 0;
+
   const handleNextHand = () => {
     if (isSubmitting) return;
-    if (!isFoldWin && selectedWinners.length === 0) return;
+    if (!isFoldWin && !allPotsHaveWinners) return;
 
     setIsSubmitting(true);
     sound.playWin();
     triggerHaptic(40);
 
     // If classic showdown with chips, award winners & start next hand in one atomic action
-    if (!isFoldWin && pot > 0 && selectedWinners.length > 0) {
-      onConfirmWinners(selectedWinners);
+    if (!isFoldWin && totalPotAmount > 0) {
+      if (hasMultiplePots) {
+        const allWinnerIds = Array.from(new Set(Object.values(potWinnerMap).flat()));
+        onConfirmWinners(allWinnerIds, potWinnerMap);
+      } else {
+        onConfirmWinners(selectedWinners);
+      }
     } else {
       onNextHand();
     }
@@ -79,7 +144,16 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: 390, textAlign: 'center', padding: '24px 20px' }}>
+      <div
+        className="modal-content"
+        style={{
+          maxWidth: hasMultiplePots ? 480 : 390,
+          textAlign: 'center',
+          padding: '24px 20px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
         {isFoldWin && soleWinner ? (
           /* SCENARIO A: VICTORY BY FOLD (ALL OTHERS SURRENDERED) */
           <>
@@ -133,91 +207,192 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
             </div>
 
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '6px 0 14px' }}>
-              เทียบหน้าไพ่จริงนอกจอ แล้วเลือกผู้ชนะของรอบนี้
+              เทียบหน้าไพ่จริงนอกจอ แล้วเลือกผู้ชนะของแต่ละ Pot
             </p>
 
-            {/* Pot Display */}
+            {/* Total Pot Banner */}
             <div
               style={{
                 background: 'rgba(245, 158, 11, 0.1)',
                 border: '1px solid rgba(245, 158, 11, 0.3)',
                 borderRadius: 14,
-                padding: '12px 16px',
+                padding: '10px 16px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: 4,
+                gap: 2,
                 marginBottom: 14,
               }}
             >
               <span style={{ fontSize: '0.75rem', color: '#fbbf24', textTransform: 'uppercase', fontWeight: 700 }}>
-                Main Pot
+                {hasMultiplePots ? 'เงินกองกลางทั้งหมด (Total Pot)' : 'Main Pot'}
               </span>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '2rem', fontWeight: 800, color: '#f59e0b' }}>
-                🪙 {pot.toLocaleString()}
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.8rem', fontWeight: 800, color: '#f59e0b' }}>
+                🪙 {totalPotAmount.toLocaleString()}
               </div>
-              {selectedWinners.length > 1 && pot > 0 && (
-                <span style={{ fontSize: '0.75rem', color: '#93c5fd' }}>
-                  หารเฉลี่ยคนละ ~{Math.floor(pot / selectedWinners.length).toLocaleString()} ชิป
-                </span>
-              )}
             </div>
 
-            {/* Selectable Player List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto', marginBottom: 14 }}>
-              {displayPlayers.map(player => {
-                const isSelected = selectedWinners.includes(player.id);
-                return (
-                  <button
-                    key={player.id}
-                    type="button"
-                    onClick={() => isHost && toggleWinner(player.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      borderRadius: 12,
-                      border: isSelected
-                        ? '1.5px solid #3b82f6'
-                        : '1px solid rgba(255, 255, 255, 0.08)',
-                      background: isSelected
-                        ? 'rgba(59, 130, 246, 0.2)'
-                        : 'rgba(255, 255, 255, 0.04)',
-                      cursor: isHost ? 'pointer' : 'default',
-                      transition: 'all 0.2s ease',
-                      color: 'white',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Image
-                        src={player.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
-                        alt={player.name}
-                        width={28}
-                        height={28}
-                        style={{ borderRadius: '50%' }}
-                        unoptimized
-                      />
-                      <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{player.name}</span>
+            {/* SCENARIO B.1: MULTIPLE POTS (SIDE POT ENGINE) */}
+            {hasMultiplePots && sidePots ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+                {/* Quick Overall Winner Selection */}
+                {isHost && (
+                  <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: 10, borderRadius: 12, border: '1px dashed var(--border-subtle)', textAlign: 'left' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#93c5fd', fontWeight: 600, marginBottom: 6 }}>
+                      ⚡ ทางลัด: เลือกผู้ชนะคนเดียวรับทุก Pot ที่มีสิทธิ์:
                     </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {displayPlayers.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="secondary-btn"
+                          style={{ fontSize: '0.74rem', padding: '4px 8px', borderRadius: 8 }}
+                          onClick={() => handleSelectOverallWinner(p.id)}
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
+                {/* Pots breakdown */}
+                {sidePots.map((potItem, idx) => {
+                  const potKey = potItem.id || String(idx);
+                  const winnersForPot = potWinnerMap[potKey] || [];
+                  const potEligible = displayPlayers.filter(p => potItem.eligiblePlayerIds.includes(p.id));
+
+                  return (
                     <div
+                      key={potKey}
                       style={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: 6,
-                        background: isSelected ? '#3b82f6' : 'rgba(255, 255, 255, 0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        background: 'rgba(0, 0, 0, 0.35)',
+                        border: winnersForPot.length > 0 ? '1.5px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+                        borderRadius: 14,
+                        padding: 12,
+                        textAlign: 'left',
                       }}
                     >
-                      {isSelected && <Check size={16} strokeWidth={3} color="white" />}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Coins size={16} color="#fbbf24" />
+                          <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#f3f4f6' }}>
+                            {potItem.name || (idx === 0 ? 'Main Pot' : `Side Pot ${idx}`)}
+                          </span>
+                        </div>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#fbbf24', fontSize: '1rem' }}>
+                          🪙 {potItem.amount.toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 6 }}>
+                        ผู้มีสิทธิ์ลุ้น ({potEligible.length} คน): เลือกผู้ชนะ
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 6 }}>
+                        {potEligible.map(player => {
+                          const isSelected = winnersForPot.includes(player.id);
+                          return (
+                            <button
+                              key={player.id}
+                              type="button"
+                              onClick={() => isHost && toggleSidePotWinner(potKey, player.id)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '6px 8px',
+                                borderRadius: 8,
+                                border: isSelected
+                                  ? '1.5px solid #3b82f6'
+                                  : '1px solid rgba(255, 255, 255, 0.08)',
+                                background: isSelected
+                                  ? 'rgba(59, 130, 246, 0.25)'
+                                  : 'rgba(255, 255, 255, 0.04)',
+                                cursor: isHost ? 'pointer' : 'default',
+                                color: 'white',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <span style={{ fontSize: '0.8rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {player.name}
+                              </span>
+                              {isSelected && <Check size={14} color="#38bdf8" strokeWidth={3} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {winnersForPot.length === 0 && (
+                        <div style={{ fontSize: '0.7rem', color: '#f87171', marginTop: 6 }}>
+                          ⚠️ กรุณาเลือกผู้ชนะอย่างน้อย 1 คนสำหรับ Pot นี้
+                        </div>
+                      )}
                     </div>
-                  </button>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* SCENARIO B.2: SINGLE MAIN POT */
+              <>
+                {/* Selectable Player List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', marginBottom: 14 }}>
+                  {displayPlayers.map(player => {
+                    const isSelected = selectedWinners.includes(player.id);
+                    return (
+                      <button
+                        key={player.id}
+                        type="button"
+                        onClick={() => isHost && toggleSinglePotWinner(player.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 14px',
+                          borderRadius: 12,
+                          border: isSelected
+                            ? '1.5px solid #3b82f6'
+                            : '1px solid rgba(255, 255, 255, 0.08)',
+                          background: isSelected
+                            ? 'rgba(59, 130, 246, 0.2)'
+                            : 'rgba(255, 255, 255, 0.04)',
+                          cursor: isHost ? 'pointer' : 'default',
+                          transition: 'all 0.2s ease',
+                          color: 'white',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <Image
+                            src={player.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
+                            alt={player.name}
+                            width={28}
+                            height={28}
+                            style={{ borderRadius: '50%' }}
+                            unoptimized
+                          />
+                          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{player.name}</span>
+                        </div>
+
+                        <div
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 6,
+                            background: isSelected ? '#3b82f6' : 'rgba(255, 255, 255, 0.1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {isSelected && <Check size={16} strokeWidth={3} color="white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </>
         )}
 
@@ -235,12 +410,14 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
                 fontWeight: 700,
               }}
               onClick={handleNextHand}
-              disabled={isSubmitting || (!isFoldWin && selectedWinners.length === 0)}
+              disabled={isSubmitting || (!isFoldWin && !allPotsHaveWinners)}
             >
               {isSubmitting
                 ? 'กำลังประมวลผล...'
                 : isFoldWin
                 ? 'เริ่ม Hand ถัดไป'
+                : hasMultiplePots
+                ? 'แจกชิป Side Pots & เริ่ม Hand ถัดไป'
                 : `แจกชิป & เริ่ม Hand ถัดไป (${selectedWinners.length} คน)`}
             </button>
           ) : (

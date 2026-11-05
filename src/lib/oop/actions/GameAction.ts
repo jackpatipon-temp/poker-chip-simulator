@@ -43,6 +43,9 @@ export class FoldAction extends GameAction {
 
     player.fold();
 
+    // Recalculate pots when a player folds
+    room.pot.recalculatePots(room.players);
+
     // Check if only 1 player remains in the hand
     const remainingInHand = room.getPlayersInHand();
     if (remainingInHand.length === 1) {
@@ -89,6 +92,9 @@ export class CallAction extends GameAction {
 
     room.pot.addChips(actualWager);
     player.recordAction(player.chips === 0 ? 'all-in' : 'call');
+
+    // Recalculate main pot and side pots if call resulted in all-in
+    room.pot.recalculatePots(room.players);
   }
 }
 
@@ -114,7 +120,13 @@ export class RaiseAction extends GameAction {
 
     const currentHighest = room.currentHighestBet;
     const playerMaxPossible = player.chips + player.currentBet;
-    const minLegalTotal = currentHighest === 0 ? room.bigBlind : currentHighest + room.minRaise;
+
+    // Determine legal minimum raise according to room rules:
+    // 'casual' (บ้านๆ): Raise เท่าไหร่ก็ได้ ขอแค่มากกว่ายอดเดิมพันปัจจุบัน (หรืออย่างน้อย Big Blind ถ้ายังไม่มีใครเปิด)
+    // 'standard' (สากล): ต้องเกทับเพิ่มขึ้นอย่างน้อยเท่ากับยอด Raise ก่อนหน้า (+minRaise)
+    const minLegalTotal = room.raiseRule === 'casual'
+      ? (currentHighest === 0 ? room.bigBlind : currentHighest + 1)
+      : (currentHighest === 0 ? room.bigBlind : currentHighest + room.minRaise);
 
     let targetTotal: number;
     if (playerMaxPossible <= minLegalTotal) {
@@ -130,7 +142,9 @@ export class RaiseAction extends GameAction {
     room.pot.addChips(actualWager);
 
     const raiseDiff = targetTotal - currentHighest;
-    if (raiseDiff > room.minRaise) {
+    if (room.raiseRule === 'casual') {
+      room.setMinRaise(1);
+    } else if (raiseDiff > room.minRaise) {
       room.setMinRaise(raiseDiff);
     }
     if (targetTotal > currentHighest) {
@@ -138,6 +152,9 @@ export class RaiseAction extends GameAction {
     }
 
     player.recordAction(player.chips === 0 ? 'all-in' : 'raise');
+
+    // Recalculate main pot and side pots if player went all-in
+    room.pot.recalculatePots(room.players);
 
     // Reopen action for all other active players in hand
     room.reopenBettingForOthers(this._playerId);

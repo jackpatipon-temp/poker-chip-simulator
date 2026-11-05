@@ -23,7 +23,11 @@ export interface Player {
   hasActedThisRound: boolean;
 }
 
+export type RaiseRule = 'standard' | 'casual';
+
 export interface SidePot {
+  id?: string;
+  name?: string;
   amount: number;
   eligiblePlayerIds: string[];
 }
@@ -49,7 +53,10 @@ export interface RoomState {
   isHostPlaying: boolean;
   smallBlind: number;
   bigBlind: number;
+  nextSmallBlind?: number;
+  nextBigBlind?: number;
   ante: number;
+  raiseRule?: RaiseRule; // 'standard' (สากล) | 'casual' (บ้านๆ เกทับเท่าไหร่ก็ได้ > ล่าสุด)
   street: Street;
   pot: number;
   currentHighestBet: number;

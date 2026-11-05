@@ -17,9 +17,13 @@ export const DEFAULT_BB = 10;
 /**
  * Factory creating initial room state using OOP encapsulation.
  */
-export const createInitialRoomState = (roomId: string, hostPlayer: Player): RoomState => {
+export const createInitialRoomState = (
+  roomId: string,
+  hostPlayer: Player,
+  raiseRule: 'standard' | 'casual' = 'standard'
+): RoomState => {
   const oopHost = OOPPlayer.fromJSON(hostPlayer);
-  const room = new PokerRoom(roomId, oopHost, DEFAULT_SB, DEFAULT_BB, 'Poker Party Room');
+  const room = new PokerRoom(roomId, oopHost, DEFAULT_SB, DEFAULT_BB, 'Poker Party Room', raiseRule);
   return room.toJSON();
 };
 
@@ -114,13 +118,20 @@ export const handlePlayerAction = (
 export const awardPotToWinners = (
   state: RoomState,
   winnerIds: string[],
-  startNextHand: boolean = true
+  startNextHand: boolean = true,
+  potWinnerMap?: Record<string, string[]>
 ): RoomState => {
   const room = PokerRoom.fromState(state);
-  room.awardPotToWinners(winnerIds);
+  room.awardPotToWinners(winnerIds, potWinnerMap);
   if (startNextHand) {
     room.startNewHand();
   }
+  return room.toJSON();
+};
+
+export const setRoomNextBlinds = (state: RoomState, sb: number, bb: number): RoomState => {
+  const room = PokerRoom.fromState(state);
+  room.setNextBlinds(sb, bb);
   return room.toJSON();
 };
 

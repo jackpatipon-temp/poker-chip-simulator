@@ -14,6 +14,7 @@ interface ActionControlsProps {
   isMyTurn: boolean;
   isHandStarted?: boolean;
   isSubmitting?: boolean;
+  raiseRule?: 'standard' | 'casual';
   onFold: () => void;
   onCheck: () => void;
   onCall: () => void;
@@ -28,6 +29,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   isMyTurn,
   isHandStarted = true,
   isSubmitting = false,
+  raiseRule = 'standard',
   onFold,
   onCheck,
   onCall,
@@ -42,7 +44,10 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   const callAmount = Math.min(toCall, player.chips);
   const isAllInCall = callAmount === player.chips;
 
-  const minRaiseTotal = currentHighestBet === 0 ? minRaise : currentHighestBet + minRaise;
+  const minRaiseTotal =
+    raiseRule === 'casual'
+      ? (currentHighestBet === 0 ? minRaise : currentHighestBet + 1)
+      : (currentHighestBet === 0 ? minRaise : currentHighestBet + minRaise);
   const canRaise = player.chips > toCall;
 
   const handleFold = () => {
@@ -165,11 +170,15 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
           )}
         </div>
 
-        {/* RAISE BUTTON (Always Raise with minimum starting at currentHighestBet) */}
+        {/* RAISE BUTTON */}
         <div className="action-btn-wrapper">
           <FloatingTip
-            title="การเกทับ (Raise)"
-            text={`มียอดเดิมพันสูงสุดอยู่ที่ ${currentHighestBet} | กฎ Poker: การ Raise ต้องเพิ่มขึ้นอย่างน้อยเท่ากับการลงเดิมพันครั้งก่อนหน้า (+${minRaise}) รวมเป็นอย่างน้อย ${minRaiseTotal} ชิป (ไม่สามารถใส่ยอดต่ำกว่าเงินเดิมพันปัจจุบันได้)`}
+            title={`การเกทับ (Raise ${raiseRule === 'casual' ? 'แบบบ้านๆ' : 'แบบสากล'})`}
+            text={
+              raiseRule === 'casual'
+                ? `มียอดเดิมพันสูงสุดอยู่ที่ ${currentHighestBet} | กฎแบบบ้านๆ: สามารถใส่เท่าไหร่ก็ได้ ขอแค่มากกว่ายอดเดิมพันปัจจุบัน ${currentHighestBet}`
+                : `มียอดเดิมพันสูงสุดอยู่ที่ ${currentHighestBet} | กฎ Poker สากล: การ Raise ต้องเพิ่มขึ้นอย่างน้อยเท่ากับการลงเดิมพันครั้งก่อนหน้า (+${minRaise}) รวมเป็นอย่างน้อย ${minRaiseTotal} ชิป`
+            }
           />
           <button
             type="button"
@@ -179,7 +188,11 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
           >
             <span>Raise</span>
             <span className="btn-sub-text">
-              {currentHighestBet === 0 ? `ขั้นต่ำ ${minRaise}` : `≥ ${minRaiseTotal}`}
+              {currentHighestBet === 0
+                ? `ขั้นต่ำ ${minRaise}`
+                : raiseRule === 'casual'
+                ? `> ${currentHighestBet}`
+                : `≥ ${minRaiseTotal}`}
             </span>
           </button>
         </div>

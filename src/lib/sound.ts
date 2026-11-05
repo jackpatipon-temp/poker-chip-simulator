@@ -204,6 +204,39 @@ class SoundFX {
       // Ignore audio error
     }
   }
+
+  // Bell chime for incoming join requests / notifications
+  public playNotification() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+
+      const playTone = (freq: number, delayMs: number, duration: number) => {
+        setTimeout(() => {
+          try {
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+          } catch {}
+        }, delayMs);
+      };
+
+      playTone(659.25, 0, 0.18); // E5
+      playTone(783.99, 100, 0.18); // G5
+      playTone(1046.50, 200, 0.3); // C6
+    } catch {
+      // Ignore audio error
+    }
+  }
 }
 
 export const sound = new SoundFX();

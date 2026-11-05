@@ -43,12 +43,14 @@ export async function POST(
     const body = await request.json();
 
     if (body.type === 'JOIN') {
+      // autoApprove = false: New players require Host approval.
+      // Reconnecting players are automatically recognized and seated without waiting.
       const result = requestJoinServerRoom(
         pin,
         body.playerName,
         body.playerAvatar,
         body.requestedChips,
-        true,
+        false,
         body.playerId
       );
       if (result.error) {

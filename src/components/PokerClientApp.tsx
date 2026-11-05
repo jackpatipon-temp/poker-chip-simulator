@@ -12,6 +12,7 @@ import { VoteModal } from '@/components/VoteModal';
 import { SettingsModal } from '@/components/SettingsModal';
 import { DisclaimerModal } from '@/components/DisclaimerModal';
 import { LobbyView } from '@/components/LobbyView';
+import { HostTransferModal } from '@/components/HostTransferModal';
 import { Check, X, Loader2 } from 'lucide-react';
 import { sound, triggerHaptic } from '@/lib/sound';
 import {
@@ -57,6 +58,8 @@ export function PokerClientApp({
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isHostTransferModalOpen, setIsHostTransferModalOpen] = useState(false);
+  const [isJoinRejected, setIsJoinRejected] = useState(false);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
 
   // Sound and Haptic preferences
@@ -347,6 +350,33 @@ export function PokerClientApp({
   const isMyTurn = activeActor?.id === currentUserId;
   const isWaitingForApproval = roomState?.pendingRequests.some((r) => r.userId === currentUserId);
 
+  // Host Notification: chime sound + haptic when a new join request arrives
+  const prevPendingCountRef = useRef(0);
+  useEffect(() => {
+    const currentCount = roomState?.pendingRequests?.length || 0;
+    if (isHost && currentCount > prevPendingCountRef.current) {
+      sound.playNotification();
+      triggerHaptic([120, 60, 120]);
+    }
+    prevPendingCountRef.current = currentCount;
+  }, [isHost, roomState?.pendingRequests?.length]);
+
+  // Joining Player Notification: notify if join request was rejected by Host
+  const prevWasWaitingRef = useRef(false);
+  useEffect(() => {
+    if (isWaitingForApproval) {
+      prevWasWaitingRef.current = true;
+    } else if (
+      prevWasWaitingRef.current &&
+      !currentPlayer &&
+      roomState &&
+      !isWaitingForApproval
+    ) {
+      setIsJoinRejected(true);
+      prevWasWaitingRef.current = false;
+    }
+  }, [isWaitingForApproval, currentPlayer, roomState]);
+
   // Turn Notification: Vibrate & Sound Alert when it becomes user's turn
   const prevIsMyTurnRef = useRef(false);
   useEffect(() => {
@@ -562,15 +592,24 @@ export function PokerClientApp({
     [sendRoomAction]
   );
 
+  const handleTransferHost = useCallback(
+    (targetPlayerId: string) => {
+      sendRoomAction({ type: 'TRANSFER_HOST', targetPlayerId });
+    },
+    [sendRoomAction]
+  );
 
-
-  const handleLeaveRoom = useCallback(async () => {
+  const handleLeaveRoom = useCallback(async (newHostId?: string) => {
     if (currentUserId && currentPin) {
       try {
         await fetch(`/api/rooms/${currentPin}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'LEAVE', playerId: currentUserId }),
+          body: JSON.stringify({
+            type: 'LEAVE',
+            playerId: currentUserId,
+            newHostId: newHostId,
+          }),
         }).catch(() => {});
       } catch {}
     }
@@ -585,7 +624,22 @@ export function PokerClientApp({
     setRoomState(null);
     setCurrentUserId(null);
     setIsSettingsOpen(false);
+    setIsHostTransferModalOpen(false);
   }, [currentPin, currentUserId]);
+
+  const handleInitiateLeave = useCallback(() => {
+    const hasOtherPlayers = (roomState?.players || []).some(p => p.id !== currentUserId);
+    if (isHost && hasOtherPlayers) {
+      setIsSettingsOpen(false);
+      setIsHostTransferModalOpen(true);
+    } else {
+      handleLeaveRoom();
+    }
+  }, [isHost, roomState?.players, currentUserId, handleLeaveRoom]);
+
+
+
+
 
   return (
     <div className="app-container">
@@ -824,6 +878,7 @@ export function PokerClientApp({
             onMoveSeat={handleMoveSeat}
             onToggleAfk={handleToggleAfk}
             onKickPlayer={handleKickPlayer}
+            onTransferHost={handleTransferHost}
           />
 
           {/* Interactive Vote Modal */}
@@ -846,10 +901,47 @@ export function PokerClientApp({
             onToggleSound={setSoundEnabled}
             onToggleHaptic={setHapticEnabled}
             onToggleSittingOut={handleToggleSittingOut}
-            onLeaveRoom={handleLeaveRoom}
+            onLeaveRoom={handleInitiateLeave}
             onOpenDisclaimer={() => setIsDisclaimerOpen(true)}
           />
         </>
+      )}
+
+      {/* Host Succession Modal */}
+      {roomState && (
+        <HostTransferModal
+          isOpen={isHostTransferModalOpen}
+          players={roomState.players}
+          currentUserId={currentUserId || ''}
+          onClose={() => setIsHostTransferModalOpen(false)}
+          onConfirmTransferAndLeave={(newHostId) => handleLeaveRoom(newHostId)}
+        />
+      )}
+
+      {/* Join Request Rejected Modal */}
+      {isJoinRejected && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ textAlign: 'center', gap: 14, maxWidth: 360 }}>
+            <div style={{ fontSize: '2.5rem' }}>🚫</div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ef4444' }}>
+              คำขอเข้าห้องไม่ได้รับอนุมัติ
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Host ได้ปฏิเสธคำขอเข้าร่วมห้อง PIN: <strong style={{ color: '#f59e0b' }}>{currentPin}</strong>
+            </p>
+            <button
+              type="button"
+              className="primary-btn"
+              style={{ marginTop: 8, padding: '10px 20px' }}
+              onClick={() => {
+                setIsJoinRejected(false);
+                handleLeaveRoom();
+              }}
+            >
+              กลับสู่หน้าแรก
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Legal Disclaimer Modal */}

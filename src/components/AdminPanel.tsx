@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { X, Undo2, Check, UserPlus, Vote as VoteIcon, Users, Sliders, ArrowUp, ArrowDown, Dices, Coffee, UserMinus } from 'lucide-react';
+import { X, Undo2, Check, UserPlus, Vote as VoteIcon, Users, Sliders, ArrowUp, ArrowDown, Dices, Coffee, UserMinus, Crown } from 'lucide-react';
 import { RoomState, JoinRequest } from '@/types/poker';
 import { sound, triggerHaptic } from '@/lib/sound';
 
@@ -21,6 +21,7 @@ interface AdminPanelProps {
   onMoveSeat?: (playerId: string, direction: 'up' | 'down') => void;
   onToggleAfk?: (playerId: string) => void;
   onKickPlayer?: (playerId: string) => void;
+  onTransferHost?: (playerId: string) => void;
   initialTab?: 'seating' | 'requests' | 'vote' | 'game';
 }
 
@@ -39,6 +40,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onMoveSeat,
   onToggleAfk,
   onKickPlayer,
+  onTransferHost,
   initialTab = 'seating',
 }) => {
   const [chipInputs, setChipInputs] = useState<Record<string, number>>({});
@@ -357,6 +359,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           title={isAfk ? 'ปลดสถานะพักเบรก (กลับเข้าโต๊ะ)' : 'ตั้งสถานะพักเบรก/เข้าห้องน้ำ'}
                         >
                           <Coffee size={14} />
+                        </button>
+                      )}
+
+                      {/* Transfer Host button (only for non-host players) */}
+                      {!p.isHost && onTransferHost && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderColor: 'rgba(245, 158, 11, 0.4)',
+                            color: '#f59e0b',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                          }}
+                          onClick={() => {
+                            if (confirm(`คุณต้องการโอนสิทธิ์ Host ให้ผู้เล่น "${p.name}" หรือไม่?`)) {
+                              sound.playWin();
+                              triggerHaptic(30);
+                              onTransferHost(p.id);
+                            }
+                          }}
+                          title={`โอนสิทธิ์ Host ให้ ${p.name}`}
+                        >
+                          <Crown size={14} />
                         </button>
                       )}
 

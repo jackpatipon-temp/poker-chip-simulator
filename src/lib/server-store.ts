@@ -114,7 +114,7 @@ export const requestJoinServerRoom = (
   playerName: string,
   playerAvatar: string,
   requestedChips: number = 1000,
-  autoApprove: boolean = true,
+  autoApprove: boolean = false,
   existingPlayerId?: string
 ): { room: RoomState | null; request: JoinRequest | null; player?: Player; error?: string } => {
   const room = roomsMap.get(pin);
@@ -122,7 +122,7 @@ export const requestJoinServerRoom = (
     return { room: null, request: null, error: 'ไม่พบห้องที่ระบุ PIN นี้' };
   }
 
-  // 1. Check if player already seated by existingPlayerId (reconnection)
+  // 1. Reconnection by existingPlayerId: Seamlessly reclaim existing seat with preserved chips & state!
   if (existingPlayerId) {
     const playerById = room.players.find(p => p.id === existingPlayerId);
     if (playerById) {
@@ -133,7 +133,7 @@ export const requestJoinServerRoom = (
     }
   }
 
-  // 2. Check if player with same name is already seated (safe against null/undefined)
+  // 2. Reconnection by name: Seamlessly reclaim existing seat if player name matches
   const cleanName = (playerName || '').trim().toLowerCase();
   const existingPlayer = cleanName
     ? room.players.find(p => (p.name || '').trim().toLowerCase() === cleanName)
@@ -146,10 +146,19 @@ export const requestJoinServerRoom = (
     return { room, request: null, player: existingPlayer };
   }
 
+  // 3. Prevent duplicate requests: Check if player already has a pending approval request
+  const existingReq = room.pendingRequests.find(
+    r => (existingPlayerId && r.userId === existingPlayerId) ||
+         ((r.userName || '').trim().toLowerCase() === cleanName && cleanName !== '')
+  );
+  if (existingReq) {
+    return { room, request: existingReq };
+  }
+
   if (autoApprove) {
     // Directly seat the player with approved status
     const newPlayer: Player = {
-      id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: existingPlayerId || `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       name: playerName,
       avatarUrl: playerAvatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
       chips: requestedChips,
@@ -173,7 +182,7 @@ export const requestJoinServerRoom = (
     // Put into pending requests for host manual approval
     const newRequest: JoinRequest = {
       id: `req_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      userId: `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: existingPlayerId || `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       userName: playerName,
       userAvatar: playerAvatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
       requestedChips,
@@ -249,9 +258,11 @@ export const dispatchServerRoomAction = (
       | 'SET_DEALER'
       | 'RANDOMIZE_DEALER'
       | 'SWAP_SEATS'
-      | 'MOVE_SEAT';
+      | 'MOVE_SEAT'
+      | 'TRANSFER_HOST';
     playerId?: string;
     targetPlayerId?: string;
+    newHostId?: string;
     direction?: 'up' | 'down';
     action?: 'fold' | 'check' | 'call' | 'raise' | 'all-in';
     raiseAmount?: number;
@@ -324,16 +335,40 @@ export const dispatchServerRoomAction = (
       }
       break;
 
+    case 'TRANSFER_HOST':
+      if (actionPayload.targetPlayerId) {
+        const nextHost = updated.players.find(p => p.id === actionPayload.targetPlayerId);
+        if (nextHost) {
+          updated.hostId = nextHost.id;
+          updated.players = updated.players.map(p => ({
+            ...p,
+            isHost: p.id === nextHost.id,
+          }));
+        }
+      }
+      break;
+
     case 'LEAVE':
       if (actionPayload.playerId) {
+        // If the leaving player is host and a newHostId was designated
+        if (actionPayload.playerId === updated.hostId && actionPayload.newHostId) {
+          const designatedHost = updated.players.find(p => p.id === actionPayload.newHostId);
+          if (designatedHost) {
+            updated.hostId = designatedHost.id;
+            designatedHost.isHost = true;
+          }
+        }
+
         updated.players = updated.players.filter(p => p.id !== actionPayload.playerId);
         // Re-index remaining player seats
         updated.players = updated.players.map((p, idx) => ({ ...p, seatIndex: idx }));
-        // Transfer host if host left and other players remain
+
+        // Fallback: Transfer host if host left and other players remain, and hostId was not already assigned
         if (updated.players.length > 0 && !updated.players.some(p => p.id === updated.hostId)) {
           updated.hostId = updated.players[0].id;
           updated.players[0].isHost = true;
         }
+
         if (updated.players.length > 0) {
           updated.dealerIndex = updated.dealerIndex % updated.players.length;
           updated.activePlayerIndex = updated.activePlayerIndex % updated.players.length;

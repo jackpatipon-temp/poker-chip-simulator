@@ -394,9 +394,16 @@ export const dispatchServerRoomAction = (
         console.warn('Unauthorized SHOWDOWN_WINNERS attempt by non-host:', requester);
         break;
       }
-      if (actionPayload.winnerIds) {
-        const startNext = (actionPayload as any).startNextHand !== false;
-        updated = awardPotToWinners(room, actionPayload.winnerIds, startNext, (actionPayload as any).potWinnerMap);
+      {
+        const map = (actionPayload as any).potWinnerMap;
+        let wIds: string[] = actionPayload.winnerIds || [];
+        if (wIds.length === 0 && map) {
+          wIds = Array.from(new Set(Object.values(map).flat() as string[]));
+        }
+        if (wIds.length > 0) {
+          const startNext = (actionPayload as any).startNextHand !== false;
+          updated = awardPotToWinners(room, wIds, startNext, map);
+        }
       }
       break;
 

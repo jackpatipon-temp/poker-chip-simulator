@@ -159,20 +159,46 @@ export class Pot {
 
     // Case 1: Specific Pot-by-Pot winner allocation (Side Pots)
     if (this._sidePots.length > 1 && potWinnerMap) {
-      for (const pot of this._sidePots) {
-        const assignedWinnerIds = potWinnerMap[pot.id || ''] || potWinnerMap['main'] || [];
-        const eligibleWinners = winners.filter(
+      for (let idx = 0; idx < this._sidePots.length; idx++) {
+        const pot = this._sidePots[idx];
+        const potKeyById = pot.id || '';
+        const potKeyByIndex = String(idx);
+
+        // Robust key resolution (by id, by numeric index, by 'main', or by pot name)
+        const assignedWinnerIds =
+          (potWinnerMap[potKeyById]?.length ? potWinnerMap[potKeyById] : null) ||
+          (potWinnerMap[potKeyByIndex]?.length ? potWinnerMap[potKeyByIndex] : null) ||
+          (idx === 0 && potWinnerMap['main']?.length ? potWinnerMap['main'] : null) ||
+          (pot.name && potWinnerMap[pot.name]?.length ? potWinnerMap[pot.name] : null) ||
+          [];
+
+        // Stage 1: Assigned winners who are also eligible for this pot
+        let finalWinners = winners.filter(
           w => assignedWinnerIds.includes(w.id) && pot.eligiblePlayerIds.includes(w.id)
         );
 
-        // Fallback: If no assigned winner is eligible, give to first eligible player
-        const finalWinners =
-          eligibleWinners.length > 0
-            ? eligibleWinners
-            : winners.filter(w => pot.eligiblePlayerIds.includes(w.id));
+        // Stage 2: If none, award to ANY assigned winner selected by Host (Host manual override)
+        if (finalWinners.length === 0 && assignedWinnerIds.length > 0) {
+          finalWinners = winners.filter(w => assignedWinnerIds.includes(w.id));
+        }
+
+        // Stage 3: If still none, fall back to any winner in winners who is eligible
+        if (finalWinners.length === 0) {
+          finalWinners = winners.filter(w => pot.eligiblePlayerIds.includes(w.id));
+        }
+
+        // Stage 4: If still none, fall back to all winners
+        if (finalWinners.length === 0 && winners.length > 0) {
+          finalWinners = winners;
+        }
+
+        // Stage 5: Safety fallback: NEVER drop chips! Award to first eligible player in this pot
+        if (finalWinners.length === 0 && pot.eligiblePlayerIds.length > 0) {
+          finalWinners = winners.length > 0 ? [winners[0]] : [];
+        }
 
         const potDetail: PotWinnerDetail = {
-          potName: pot.name || 'Side Pot',
+          potName: pot.name || (idx === 0 ? 'Main Pot (กองหลัก)' : `Side Pot ${idx} (กองข้างเคียง ${idx})`),
           amount: pot.amount,
           winners: [],
         };
@@ -180,8 +206,8 @@ export class Pot {
         if (finalWinners.length > 0 && pot.amount > 0) {
           const share = Math.floor(pot.amount / finalWinners.length);
           const rem = pot.amount % finalWinners.length;
-          finalWinners.forEach((w, idx) => {
-            const awarded = share + (idx === 0 ? rem : 0);
+          finalWinners.forEach((w, wIdx) => {
+            const awarded = share + (wIdx === 0 ? rem : 0);
             w.addChips(awarded);
             potDetail.winners.push({
               id: w.id,
@@ -201,10 +227,15 @@ export class Pot {
 
     // Case 2: Multi-pot with simple winner selection (award each pot to eligible winners)
     if (this._sidePots.length > 1) {
-      for (const pot of this._sidePots) {
-        const eligibleWinners = winners.filter(w => pot.eligiblePlayerIds.includes(w.id));
+      for (let idx = 0; idx < this._sidePots.length; idx++) {
+        const pot = this._sidePots[idx];
+        let eligibleWinners = winners.filter(w => pot.eligiblePlayerIds.includes(w.id));
+        if (eligibleWinners.length === 0 && winners.length > 0) {
+          eligibleWinners = winners;
+        }
+
         const potDetail: PotWinnerDetail = {
-          potName: pot.name || 'Side Pot',
+          potName: pot.name || (idx === 0 ? 'Main Pot (กองหลัก)' : `Side Pot ${idx} (กองข้างเคียง ${idx})`),
           amount: pot.amount,
           winners: [],
         };
@@ -212,8 +243,8 @@ export class Pot {
         if (eligibleWinners.length > 0 && pot.amount > 0) {
           const share = Math.floor(pot.amount / eligibleWinners.length);
           const rem = pot.amount % eligibleWinners.length;
-          eligibleWinners.forEach((w, idx) => {
-            const awarded = share + (idx === 0 ? rem : 0);
+          eligibleWinners.forEach((w, wIdx) => {
+            const awarded = share + (wIdx === 0 ? rem : 0);
             w.addChips(awarded);
             potDetail.winners.push({
               id: w.id,
@@ -271,7 +302,12 @@ export class Pot {
 
   public static fromJSON(potAmount: number, sidePots: SidePot[] = []): Pot {
     const pot = new Pot(potAmount);
-    pot._sidePots = [...sidePots];
+    pot._sidePots = (sidePots || []).map(p => ({
+      id: p.id,
+      name: p.name,
+      amount: p.amount,
+      eligiblePlayerIds: Array.isArray(p.eligiblePlayerIds) ? [...p.eligiblePlayerIds] : [],
+    }));
     return pot;
   }
 }

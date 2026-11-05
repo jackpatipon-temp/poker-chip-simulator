@@ -225,7 +225,8 @@ export function PokerClientApp({
           requesterId: currentUserId,
           ...payload,
         };
-        const updated = await dispatchRoomAction(currentPin, payloadWithRequester, roomState || undefined);
+        const baseClone = roomState ? JSON.parse(JSON.stringify(roomState)) : undefined;
+        const updated = await dispatchRoomAction(currentPin, payloadWithRequester, baseClone);
         if (updated) {
           setRoomState(updated);
         }
@@ -425,7 +426,7 @@ export function PokerClientApp({
 
   const handleConfirmWinners = useCallback(
     (winnerIds: string[], potWinnerMap?: Record<string, string[]>) => {
-      setRoomState(prev => (prev ? awardPotToWinners(prev, winnerIds, true, potWinnerMap) : prev));
+      setRoomState(prev => (prev ? awardPotToWinners(JSON.parse(JSON.stringify(prev)), winnerIds, true, potWinnerMap) : prev));
       sendRoomAction({ type: 'SHOWDOWN_WINNERS', winnerIds, startNextHand: true, potWinnerMap });
     },
     [sendRoomAction]

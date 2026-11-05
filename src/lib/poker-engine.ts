@@ -124,7 +124,12 @@ export const awardPotToWinners = (
   const room = PokerRoom.fromState(state);
   room.awardPotToWinners(winnerIds, potWinnerMap);
   if (startNextHand) {
-    room.startNewHand();
+    const handStarted = room.startNewHand();
+    if (!handStarted) {
+      // If unable to start new hand (e.g. bust-out, only 1 player has chips left),
+      // transition out of 'showdown' to 'preflop' so the table is ready for rebuy / re-chips.
+      room.setStreet('preflop');
+    }
   }
   return room.toJSON();
 };

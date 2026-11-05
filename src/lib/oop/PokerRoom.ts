@@ -372,16 +372,20 @@ export class PokerRoom {
   }
 
   public awardPotToWinners(winnerIds: string[], potWinnerMap?: Record<string, string[]>): void {
-    if (winnerIds.length === 0 || this._pot.amount === 0) return;
-    this.saveHistory(`Award pot to ${winnerIds.length} winner(s)`);
+    let resolvedWinnerIds = [...winnerIds];
+    if (resolvedWinnerIds.length === 0 && potWinnerMap) {
+      resolvedWinnerIds = Array.from(new Set(Object.values(potWinnerMap).flat()));
+    }
+    if (resolvedWinnerIds.length === 0 || this._pot.amount === 0) return;
+    this.saveHistory(`Award pot to ${resolvedWinnerIds.length} winner(s)`);
 
     const totalPotBeforeAward = this._pot.amount;
     const inHand = this.getPlayersInHand();
     const isFoldWin = inHand.length === 1;
-    const winners = this._players.filter(p => winnerIds.includes(p.id));
+    const winners = this._players.filter(p => resolvedWinnerIds.includes(p.id));
 
     const { potResults } = this._pot.awardWinners(winners, potWinnerMap);
-    this._winnerIds = winnerIds;
+    this._winnerIds = resolvedWinnerIds;
 
     this._lastShowdownResult = {
       id: `sd_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -525,13 +529,15 @@ export class PokerRoom {
     room._minRaise = state.minRaise;
     room._dealerIndex = state.dealerIndex;
     room._activePlayerIndex = state.activePlayerIndex;
-    room._players = state.players.map(p => Player.fromJSON(p));
+    room._players = (state.players || []).map(p => Player.fromJSON(p));
     room._pot = Pot.fromJSON(state.pot, state.sidePots);
-    room._history = state.history || [];
-    room._pendingRequests = state.pendingRequests || [];
-    room._activeVote = state.activeVote || null;
-    room._winnerIds = state.winnerIds || [];
-    room._lastShowdownResult = state.lastShowdownResult;
+    room._history = (state.history || []).map(h => ({ ...h }));
+    room._pendingRequests = (state.pendingRequests || []).map(r => ({ ...r }));
+    room._activeVote = state.activeVote ? { ...state.activeVote } : null;
+    room._winnerIds = Array.isArray(state.winnerIds) ? [...state.winnerIds] : [];
+    room._lastShowdownResult = state.lastShowdownResult
+      ? JSON.parse(JSON.stringify(state.lastShowdownResult))
+      : null;
     room._isFirstHandStarted = !!state.isFirstHandStarted;
 
     return room;

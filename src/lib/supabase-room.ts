@@ -310,9 +310,16 @@ export const dispatchSupabaseRoomAction = async (
         console.warn('Unauthorized SHOWDOWN_WINNERS attempt by non-host:', requester);
         break;
       }
-      if (actionPayload.winnerIds) {
-        const startNext = actionPayload.startNextHand !== false;
-        updated = awardPotToWinners(room, actionPayload.winnerIds, startNext, actionPayload.potWinnerMap);
+      {
+        const map = actionPayload.potWinnerMap;
+        let wIds: string[] = actionPayload.winnerIds || [];
+        if (wIds.length === 0 && map) {
+          wIds = Array.from(new Set(Object.values(map).flat() as string[]));
+        }
+        if (wIds.length > 0) {
+          const startNext = actionPayload.startNextHand !== false;
+          updated = awardPotToWinners(room, wIds, startNext, map);
+        }
       }
       break;
     case 'UNDO':

@@ -44,7 +44,10 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
     ? sidePots!.reduce((sum, p) => sum + p.amount, 0)
     : pot;
 
-  // Keep selected winners in sync when modal opens
+  // Unique key to detect if pots actually changed
+  const sidePotsSignature = sidePots ? sidePots.map((p, i) => `${p.id || i}:${p.amount}`).join('|') : '';
+
+  // Keep selected winners in sync when modal opens or pots structure changes
   useEffect(() => {
     if (initialWinnerIds && initialWinnerIds.length > 0) {
       setSelectedWinners(initialWinnerIds);
@@ -68,7 +71,7 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
     }
 
     setIsSubmitting(false);
-  }, [isOpen, initialWinnerIds, eligiblePlayers.length, sidePots]);
+  }, [isOpen, sidePotsSignature]);
 
   // If pot is 0 and it's not a fold win, showdown is already finished -> do not show modal
   if (!isOpen || (totalPotAmount === 0 && !isFoldWin)) return null;
@@ -108,7 +111,11 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
       if (p.eligiblePlayerIds.includes(playerId)) {
         nextMap[key] = [playerId];
       } else {
-        nextMap[key] = potWinnerMap[key] || [];
+        if (p.eligiblePlayerIds.length === 1) {
+          nextMap[key] = [p.eligiblePlayerIds[0]];
+        } else {
+          nextMap[key] = potWinnerMap[key] || [];
+        }
       }
     });
     setPotWinnerMap(nextMap);
@@ -131,9 +138,19 @@ export const ShowdownModal: React.FC<ShowdownModalProps> = ({
 
     // If classic showdown with chips, award winners & start next hand in one atomic action
     if (!isFoldWin && totalPotAmount > 0) {
-      if (hasMultiplePots) {
-        const allWinnerIds = Array.from(new Set(Object.values(potWinnerMap).flat()));
-        onConfirmWinners(allWinnerIds, potWinnerMap);
+      if (hasMultiplePots && sidePots) {
+        // Build dual-keyed map (by id, by index, by 'main', and by name)
+        const normalizedMap: Record<string, string[]> = {};
+        sidePots.forEach((p, idx) => {
+          const potKey = p.id || String(idx);
+          const chosen = potWinnerMap[potKey] || potWinnerMap[String(idx)] || [];
+          normalizedMap[potKey] = chosen;
+          normalizedMap[String(idx)] = chosen;
+          if (idx === 0) normalizedMap['main'] = chosen;
+          if (p.name) normalizedMap[p.name] = chosen;
+        });
+        const allWinnerIds = Array.from(new Set(Object.values(normalizedMap).flat()));
+        onConfirmWinners(allWinnerIds, normalizedMap);
       } else {
         onConfirmWinners(selectedWinners);
       }

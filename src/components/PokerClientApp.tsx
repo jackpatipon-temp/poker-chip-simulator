@@ -13,7 +13,8 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { DisclaimerModal } from '@/components/DisclaimerModal';
 import { LobbyView } from '@/components/LobbyView';
 import { HostTransferModal } from '@/components/HostTransferModal';
-import { subscribeToSupabaseRealtime, broadcastRoomViaSupabase } from '@/lib/realtime';
+import { subscribeToSupabaseRoomRealtime } from '@/lib/supabase-room';
+import { createRoom, joinRoom, dispatchRoomAction, fetchRoomState } from '@/lib/room-service';
 import { Check, X, Loader2 } from 'lucide-react';
 import { sound, triggerHaptic } from '@/lib/sound';
 import {
@@ -149,7 +150,7 @@ export function PokerClientApp({
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Hybrid Real-Time Engine: Supabase Realtime (WebSockets) + SSE + Adaptive Fallback Polling
+  // Hybrid Real-Time Engine: Supabase Realtime (Database & WebSockets) + SSE + Adaptive Fallback
   useEffect(() => {
     if (!currentPin) return;
 
@@ -157,12 +158,19 @@ export function PokerClientApp({
     let eventSource: EventSource | null = null;
     let lastRealtimeMsgTime = Date.now();
 
-    // 1. Primary Real-Time Channel: Supabase Realtime WebSockets (< 50ms latency, zero Render server load)
-    const unsubSupabase = subscribeToSupabaseRealtime(currentPin, (updated) => {
-      if (!isMounted) return;
-      lastRealtimeMsgTime = Date.now();
-      setRoomState(updated);
-    });
+    // 1. Primary Real-Time Channel: Supabase Realtime (Zero server load, sub-30ms global WebSockets)
+    const unsubSupabase = subscribeToSupabaseRoomRealtime(
+      currentPin,
+      (updated) => {
+        if (!isMounted) return;
+        lastRealtimeMsgTime = Date.now();
+        setRoomState(updated);
+      },
+      () => {
+        if (!isMounted) return;
+        setRoomState(null);
+      }
+    );
 
     // 2. Secondary Real-Time Channel: Optimized Server-Sent Events (SSE)
     try {
@@ -178,43 +186,31 @@ export function PokerClientApp({
         } catch {}
       };
       eventSource.onerror = () => {
-        // SSE interrupted; adaptive polling or Supabase handles updates
+        // SSE auto-reconnects
       };
     } catch {}
 
-    // 3. Adaptive Fallback Polling: ONLY queries Render if no real-time packet arrived for 4.5+ seconds
-    // This reduces HTTP traffic to Render by over 90%, eliminating 512MB RAM exhaustion!
+    // 3. Adaptive Fallback: ONLY runs if no real-time event was received for 5+ seconds
     const adaptivePoll = async () => {
       if (!isMounted || isPollingRef.current) return;
-      // If WebSockets or SSE delivered an update recently, skip polling entirely!
-      if (Date.now() - lastRealtimeMsgTime < 4500) {
+      if (Date.now() - lastRealtimeMsgTime < 5000) {
         return;
       }
 
       isPollingRef.current = true;
       try {
-        const res = await fetch(`/api/rooms/${currentPin}?t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache' },
-        });
-        if (res.ok && isMounted) {
-          consecutive404Ref.current = 0;
-          const data = await res.json();
-          if (data.success && data.room) {
-            lastRealtimeMsgTime = Date.now();
-            setRoomState(data.room);
-          }
-        } else if (res.status === 404) {
-          consecutive404Ref.current += 1;
+        const latest = await fetchRoomState(currentPin);
+        if (latest && isMounted) {
+          lastRealtimeMsgTime = Date.now();
+          setRoomState(latest);
         }
       } catch {
-        // Silently retry on next interval
       } finally {
         isPollingRef.current = false;
       }
     };
 
-    const interval = setInterval(adaptivePoll, 3500);
+    const interval = setInterval(adaptivePoll, 4000);
 
     return () => {
       isMounted = false;
@@ -224,35 +220,17 @@ export function PokerClientApp({
     };
   }, [currentPin]);
 
-  // Dispatch game action to the server with instant broadcast + 4-second timeout protection
+  // Dispatch game action through unified room service (Supabase Realtime or local fallback)
   const sendRoomAction = useCallback(
     async (payload: Record<string, unknown>) => {
       if (!currentPin) return;
       setIsSubmittingAction(true);
-
-      const abortCtrl = new AbortController();
-      const timeoutId = setTimeout(() => abortCtrl.abort(), 4000);
-
       try {
-        const res = await fetch(`/api/rooms/${currentPin}?t=${Date.now()}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-          },
-          cache: 'no-store',
-          body: JSON.stringify(payload),
-          signal: abortCtrl.signal,
-        });
-        clearTimeout(timeoutId);
-        const data = await res.json().catch(() => null);
-        if (data?.room) {
-          setRoomState(data.room);
-          // Broadcast to all peers via Supabase Realtime for zero-latency peer sync
-          broadcastRoomViaSupabase(currentPin, data.room).catch(() => {});
+        const updated = await dispatchRoomAction(currentPin, payload);
+        if (updated) {
+          setRoomState(updated);
         }
       } catch (err) {
-        clearTimeout(timeoutId);
         console.warn('Action dispatch warning:', err);
       } finally {
         setIsSubmittingAction(false);
@@ -276,36 +254,21 @@ export function PokerClientApp({
       'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
     const finalHostName = (hostName || authUser?.name || 'Host Admin').trim();
 
-    const res = await fetch('/api/rooms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        hostName: finalHostName,
-        hostAvatar: avatar,
-        startingChips: chips,
-        smallBlind: sb,
-        bigBlind: bb,
-        customPin,
-      }),
-    });
+    const roomPin = customPin || Math.floor(1000 + Math.random() * 9000).toString();
+    const result = await createRoom(roomPin, finalHostName, avatar, chips, sb, bb);
 
-    const data = await res.json();
-    if (!data.success) {
-      throw new Error(data.error || 'สร้างห้องไม่สำเร็จ');
-    }
-
-    const hostPlayerId = data.room.players[0].id;
-    setCurrentPin(data.pin);
+    const hostPlayerId = result.room.players[0].id;
+    setCurrentPin(result.pin);
     setCurrentUserId(hostPlayerId);
-    setRoomState(data.room);
+    setRoomState(result.room);
 
     if (typeof window !== 'undefined') {
-      localStorage.setItem('poker_room_pin', data.pin);
+      localStorage.setItem('poker_room_pin', result.pin);
       localStorage.setItem('poker_user_id', hostPlayerId);
       window.history.pushState(
         {},
         '',
-        `/?pin=${encodeURIComponent(data.pin)}&userId=${encodeURIComponent(hostPlayerId)}`
+        `/?pin=${encodeURIComponent(result.pin)}&userId=${encodeURIComponent(hostPlayerId)}`
       );
     }
   };
@@ -323,33 +286,26 @@ export function PokerClientApp({
       'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80';
     const finalPlayerName = (playerName || authUser?.name || 'Player').trim();
 
-    const res = await fetch(`/api/rooms/${pin}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'JOIN',
-        playerName: finalPlayerName,
-        playerAvatar: avatar,
-        requestedChips: chips,
-        playerId: currentUserId || (typeof window !== 'undefined' ? localStorage.getItem('poker_user_id') : undefined),
-      }),
-    });
+    const existingUserId = currentUserId || (typeof window !== 'undefined' ? localStorage.getItem('poker_user_id') || undefined : undefined);
+    const result = await joinRoom(pin, finalPlayerName, avatar, chips, existingUserId);
 
-    const data = await res.json();
-    if (!data.success) {
-      throw new Error(data.error || 'ไม่พบห้องที่ระบุ');
+    if (result.error) {
+      throw new Error(result.error);
+    }
+    if (!result.room) {
+      throw new Error('ไม่พบห้องที่ระบุ');
     }
 
     setCurrentPin(pin);
-    setRoomState(data.room);
+    setRoomState(result.room);
 
     let assignedId = '';
-    if (data.player) {
-      assignedId = data.player.id;
-    } else if (data.request) {
-      assignedId = data.request.userId;
+    if (result.player) {
+      assignedId = result.player.id;
+    } else if (result.request) {
+      assignedId = result.request.userId;
     } else {
-      const existing = data.room.players.find(
+      const existing = result.room.players.find(
         (p: Player) => p.name.toLowerCase() === playerName.toLowerCase()
       );
       if (existing) assignedId = existing.id;

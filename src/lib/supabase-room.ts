@@ -368,3 +368,4 @@ export const subscribeToSupabaseRoomRealtime = (
     supabase.removeChannel(channel).catch(() => {});
   };
 };
+

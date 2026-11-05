@@ -5,18 +5,19 @@ import {
   createSupabaseRoom,
   joinSupabaseRoom,
   dispatchSupabaseRoomAction,
-  subscribeToSupabaseRoomRealtime,
 } from './supabase-room';
 
 /**
- * Unified Room Service that seamlessly coordinates between Supabase Realtime (Serverless & Zero-Memory)
+ * Unified Room Service that coordinates between Supabase Realtime (Serverless & Zero-Memory)
  * and Local Server fallback.
  */
 
 export const fetchRoomState = async (pin: string): Promise<RoomState | null> => {
   if (isSupabaseConfigured()) {
-    const sbRoom = await getSupabaseRoom(pin);
-    if (sbRoom) return sbRoom;
+    try {
+      const sbRoom = await getSupabaseRoom(pin);
+      if (sbRoom) return sbRoom;
+    } catch {}
   }
 
   // Fallback to local server
@@ -82,7 +83,7 @@ export const joinRoom = async (
   if (isSupabaseConfigured()) {
     try {
       const sbResult = await joinSupabaseRoom(pin, playerName, playerAvatar, requestedChips, false, playerId);
-      if (sbResult.room || sbResult.request || sbResult.player) {
+      if (sbResult && sbResult.room) {
         return sbResult;
       }
     } catch (e) {
@@ -117,7 +118,7 @@ export const dispatchRoomAction = async (
   if (isSupabaseConfigured()) {
     try {
       const updated = await dispatchSupabaseRoomAction(pin, payload);
-      if (updated !== undefined) {
+      if (updated !== null && updated !== undefined) {
         return updated;
       }
     } catch (e) {

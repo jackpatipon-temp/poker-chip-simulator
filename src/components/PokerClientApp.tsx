@@ -15,6 +15,7 @@ import { LobbyView } from '@/components/LobbyView';
 import { HostTransferModal } from '@/components/HostTransferModal';
 import { subscribeToSupabaseRoomRealtime } from '@/lib/supabase-room';
 import { createRoom, joinRoom, dispatchRoomAction, fetchRoomState } from '@/lib/room-service';
+import { handlePlayerAction } from '@/lib/poker-engine';
 import { Check, X, Loader2 } from 'lucide-react';
 import { sound, triggerHaptic } from '@/lib/sound';
 import {
@@ -370,22 +371,12 @@ export function PokerClientApp({
     prevIsMyTurnRef.current = Boolean(isMyTurn && isHandActive);
   }, [isMyTurn, roomState?.isFirstHandStarted, roomState?.street]);
 
-  // Actions (Optimistic UI: immediately updates player screen for zero-latency feel)
+  // Actions (Instant 0ms Local Poker Engine: UI updates & turn advances immediately without waiting for network!)
   const handleFold = useCallback(() => {
     const actorId = currentUserId || activeActor?.id;
     if (!actorId) return;
 
-    // Optimistic local update
-    setRoomState(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        players: prev.players.map(p =>
-          p.id === actorId ? { ...p, status: 'folded', isTurn: false } : p
-        ),
-      };
-    });
-
+    setRoomState(prev => (prev ? handlePlayerAction(prev, actorId, 'fold') : prev));
     sendRoomAction({ type: 'ACTION', playerId: actorId, action: 'fold' });
   }, [currentUserId, activeActor, sendRoomAction]);
 
@@ -393,17 +384,7 @@ export function PokerClientApp({
     const actorId = currentUserId || activeActor?.id;
     if (!actorId) return;
 
-    // Optimistic local update: disable buttons instantly
-    setRoomState(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        players: prev.players.map(p =>
-          p.id === actorId ? { ...p, hasActedThisRound: true, isTurn: false } : p
-        ),
-      };
-    });
-
+    setRoomState(prev => (prev ? handlePlayerAction(prev, actorId, 'check') : prev));
     sendRoomAction({ type: 'ACTION', playerId: actorId, action: 'check' });
   }, [currentUserId, activeActor, sendRoomAction]);
 
@@ -411,30 +392,7 @@ export function PokerClientApp({
     const actorId = currentUserId || activeActor?.id;
     if (!actorId) return;
 
-    // Optimistic local update
-    setRoomState(prev => {
-      if (!prev) return prev;
-      const me = prev.players.find(p => p.id === actorId);
-      const callDiff = me ? Math.max(0, prev.currentHighestBet - me.currentBet) : 0;
-      const callAmt = me ? Math.min(callDiff, me.chips) : 0;
-      return {
-        ...prev,
-        pot: prev.pot + callAmt,
-        players: prev.players.map(p =>
-          p.id === actorId
-            ? {
-                ...p,
-                chips: Math.max(0, p.chips - callAmt),
-                currentBet: p.currentBet + callAmt,
-                totalRoundBet: p.totalRoundBet + callAmt,
-                hasActedThisRound: true,
-                isTurn: false,
-              }
-            : p
-        ),
-      };
-    });
-
+    setRoomState(prev => (prev ? handlePlayerAction(prev, actorId, 'call') : prev));
     sendRoomAction({ type: 'ACTION', playerId: actorId, action: 'call' });
   }, [currentUserId, activeActor, sendRoomAction]);
 
@@ -444,31 +402,7 @@ export function PokerClientApp({
       if (!actorId) return;
 
       setIsRaiseModalOpen(false);
-
-      // Optimistic local update
-      setRoomState(prev => {
-        if (!prev) return prev;
-        const me = prev.players.find(p => p.id === actorId);
-        const addCost = me ? Math.max(0, totalAmount - me.currentBet) : 0;
-        const actualWager = me ? Math.min(addCost, me.chips) : 0;
-        return {
-          ...prev,
-          pot: prev.pot + actualWager,
-          currentHighestBet: totalAmount,
-          players: prev.players.map(p =>
-            p.id === actorId
-              ? {
-                  ...p,
-                  chips: Math.max(0, p.chips - actualWager),
-                  currentBet: totalAmount,
-                  totalRoundBet: p.totalRoundBet + actualWager,
-                  hasActedThisRound: true,
-                  isTurn: false,
-                }
-              : p
-          ),
-        };
-      });
+      setRoomState(prev => (prev ? handlePlayerAction(prev, actorId, 'raise', totalAmount) : prev));
 
       sendRoomAction({
         type: 'ACTION',

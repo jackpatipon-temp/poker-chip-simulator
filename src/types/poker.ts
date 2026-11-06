@@ -94,6 +94,7 @@ export interface RoomState {
   lastShowdownResult?: ShowdownResult | null;
   deckBurnCount?: number;
   isFirstHandStarted?: boolean;
+  isAwaitingNextStreet?: boolean;
 }
 
 export interface JoinRequest {

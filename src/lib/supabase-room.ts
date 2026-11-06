@@ -12,6 +12,7 @@ import {
   swapPlayerSeats,
   movePlayerSeat,
   setRoomNextBlinds,
+  progressRoomNextStreet,
 } from './poker-engine';
 
 export interface SupabaseRoomRow {
@@ -272,6 +273,16 @@ export const dispatchSupabaseRoomAction = async (
         break;
       }
       updated = startNewHand(room);
+      break;
+    case 'NEXT_STREET':
+      {
+        const isDealer = updated.players.some(p => p.id === requester && p.isDealer);
+        if (!isHost && !isDealer) {
+          console.warn('Unauthorized NEXT_STREET attempt by non-host/non-dealer:', requester);
+          break;
+        }
+        updated = progressRoomNextStreet(room);
+      }
       break;
     case 'SET_DEALER':
       if (!isHost) {

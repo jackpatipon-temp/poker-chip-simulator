@@ -10,6 +10,7 @@ import {
   swapPlayerSeats,
   movePlayerSeat,
   setRoomNextBlinds,
+  progressRoomNextStreet,
 } from './poker-engine';
 
 import { EventEmitter } from 'events';
@@ -287,6 +288,7 @@ export const dispatchServerRoomAction = (
     type:
       | 'ACTION'
       | 'START_HAND'
+      | 'NEXT_STREET'
       | 'SHOWDOWN_WINNERS'
       | 'UNDO'
       | 'VOTE_CREATE'
@@ -349,6 +351,17 @@ export const dispatchServerRoomAction = (
         break;
       }
       updated = startNewHand(room);
+      break;
+
+    case 'NEXT_STREET':
+      {
+        const isDealer = updated.players.some(p => p.id === requester && p.isDealer);
+        if (!isHost && !isDealer) {
+          console.warn('Unauthorized NEXT_STREET attempt by non-host/non-dealer:', requester);
+          break;
+        }
+        updated = progressRoomNextStreet(room);
+      }
       break;
 
     case 'SET_DEALER':

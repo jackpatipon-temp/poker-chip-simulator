@@ -17,7 +17,7 @@ import { HostTransferModal } from '@/components/HostTransferModal';
 import { TurnEdgeWaveOverlay } from '@/components/TurnEdgeWaveOverlay';
 import { subscribeToSupabaseRoomRealtime } from '@/lib/supabase-room';
 import { createRoom, joinRoom, dispatchRoomAction, fetchRoomState } from '@/lib/room-service';
-import { handlePlayerAction, awardPotToWinners, startNewHand, setRoomNextBlinds } from '@/lib/poker-engine';
+import { handlePlayerAction, awardPotToWinners, startNewHand, setRoomNextBlinds, progressRoomNextStreet } from '@/lib/poker-engine';
 import { Check, X, Loader2 } from 'lucide-react';
 import { sound, triggerHaptic } from '@/lib/sound';
 import {
@@ -422,6 +422,13 @@ export function PokerClientApp({
     sendRoomAction({ type: 'START_HAND' });
   }, [sendRoomAction]);
 
+  const handleNextStreet = useCallback(() => {
+    setRoomState(prev => (prev ? progressRoomNextStreet(JSON.parse(JSON.stringify(prev))) : prev));
+    sendRoomAction({ type: 'NEXT_STREET' });
+    sound.playCardDeal();
+    triggerHaptic(30);
+  }, [sendRoomAction]);
+
   const handleUndo = useCallback(() => {
     sendRoomAction({ type: 'UNDO' });
   }, [sendRoomAction]);
@@ -731,7 +738,7 @@ export function PokerClientApp({
           )}
 
           {/* Animated Wave Glow Overlay around screen edges when it's the viewing player's turn */}
-          <TurnEdgeWaveOverlay isActive={Boolean(isMyTurn && isHandActive)} />
+          <TurnEdgeWaveOverlay isActive={Boolean(isMyTurn && isHandActive && !roomState.isAwaitingNextStreet)} />
 
           {/* Header Bar */}
           <HeaderBar
@@ -756,6 +763,8 @@ export function PokerClientApp({
             currentUserId={currentUserId || ''}
             roomPin={currentPin}
             isHost={isHost}
+            isAwaitingNextStreet={roomState.isAwaitingNextStreet}
+            onNextStreet={handleNextStreet}
             onStartHand={isHost ? handleStartHand : undefined}
             onOpenSeating={isHost ? () => setIsAdminPanelOpen(true) : undefined}
           />
@@ -769,6 +778,7 @@ export function PokerClientApp({
             isMyTurn={isMyTurn}
             isHandStarted={Boolean(roomState.isFirstHandStarted && roomState.street !== 'showdown')}
             isSubmitting={isSubmittingAction}
+            isAwaitingNextStreet={roomState.isAwaitingNextStreet}
             raiseRule={roomState.raiseRule}
             onFold={handleFold}
             onCheck={handleCheck}

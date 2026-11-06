@@ -33,6 +33,7 @@ export class PokerRoom {
   private _winnerIds: string[];
   private _lastShowdownResult?: ShowdownResult | null;
   private _isFirstHandStarted: boolean;
+  private _isAwaitingNextStreet: boolean;
 
   constructor(
     roomId: string,
@@ -65,6 +66,7 @@ export class PokerRoom {
     this._winnerIds = [];
     this._lastShowdownResult = null;
     this._isFirstHandStarted = false;
+    this._isAwaitingNextStreet = false;
   }
 
   // --- Getters ---
@@ -91,8 +93,12 @@ export class PokerRoom {
   public get raiseRule(): 'standard' | 'casual' { return this._raiseRule; }
   public get nextSmallBlind(): number | undefined { return this._nextSmallBlind; }
   public get nextBigBlind(): number | undefined { return this._nextBigBlind; }
+  public get isAwaitingNextStreet(): boolean { return this._isAwaitingNextStreet; }
 
   // --- Mutators ---
+  public setAwaitingNextStreet(val: boolean): void {
+    this._isAwaitingNextStreet = val;
+  }
   public setRaiseRule(rule: 'standard' | 'casual'): void {
     this._raiseRule = rule;
   }
@@ -274,6 +280,7 @@ export class PokerRoom {
     this._minRaise = this._raiseRule === 'casual' ? 1 : this._bigBlind;
     this._street = 'preflop';
     this._winnerIds = [];
+    this._isAwaitingNextStreet = false;
 
     // Preflop first to act
     const firstToAct = eligiblePlayers.length === 2 ? sbIdx : this.getNextActiveIndex(bbIdx);
@@ -311,6 +318,7 @@ export class PokerRoom {
   }
 
   public progressToNextStreet(): void {
+    if (this._street === 'showdown') return;
     this.saveHistory(`Progress from ${this._street}`);
 
     // Reset round bets
@@ -318,15 +326,6 @@ export class PokerRoom {
     this._currentHighestBet = 0;
     this._minRaise = this._raiseRule === 'casual' ? 1 : this._bigBlind;
     this._pot.recalculatePots(this._players);
-
-    const inHand = this.getPlayersInHand();
-    const withChips = inHand.filter(p => p.chips > 0);
-
-    // If 0 or 1 player has chips remaining, runout straight to showdown
-    if (withChips.length <= 1 && inHand.length > 1) {
-      this._street = 'showdown';
-      return;
-    }
 
     if (this._street === 'preflop') {
       this._street = 'flop';
@@ -336,9 +335,23 @@ export class PokerRoom {
       this._street = 'river';
     } else if (this._street === 'river') {
       this._street = 'showdown';
+      this._isAwaitingNextStreet = false;
+      this._players.forEach(p => p.setTurn(false));
       return;
     }
 
+    const inHand = this.getPlayersInHand();
+    const withChips = inHand.filter(p => p.chips > 0);
+
+    // If 0 or 1 player has chips remaining (all-in runout), stay in awaiting next street mode
+    // so the dealer can deal each physical card step-by-step
+    if (withChips.length <= 1 && inHand.length > 1) {
+      this._isAwaitingNextStreet = true;
+      this._players.forEach(p => p.setTurn(false));
+      return;
+    }
+
+    this._isAwaitingNextStreet = false;
     // First active left of dealer button
     const nextActor = this.getNextActiveIndex(this._dealerIndex);
     this.setActiveTurnIndex(nextActor);
@@ -361,12 +374,17 @@ export class PokerRoom {
 
     if (this._street !== 'showdown') {
       if (this.isBettingRoundComplete()) {
-        this.progressToNextStreet();
+        // Betting round is complete!
+        // Lock player actions and pause for "ไพ่ต่อไป" button to deal the physical card
+        this._isAwaitingNextStreet = true;
+        this._players.forEach(p => p.setTurn(false));
       } else {
+        this._isAwaitingNextStreet = false;
         const nextIdx = this.getNextActiveIndex(this._activePlayerIndex);
         this.setActiveTurnIndex(nextIdx);
       }
     } else {
+      this._isAwaitingNextStreet = false;
       this._players.forEach(p => p.setTurn(false));
     }
   }
@@ -501,6 +519,7 @@ export class PokerRoom {
       winnerIds: this._winnerIds,
       lastShowdownResult: this._lastShowdownResult,
       isFirstHandStarted: this._isFirstHandStarted,
+      isAwaitingNextStreet: this._isAwaitingNextStreet,
     };
   }
 
@@ -539,6 +558,7 @@ export class PokerRoom {
       ? JSON.parse(JSON.stringify(state.lastShowdownResult))
       : null;
     room._isFirstHandStarted = !!state.isFirstHandStarted;
+    room._isAwaitingNextStreet = Boolean(state.isAwaitingNextStreet);
 
     return room;
   }

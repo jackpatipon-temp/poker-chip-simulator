@@ -4,7 +4,7 @@ import React from 'react';
 import { Player } from '@/types/poker';
 import { FloatingTip } from './FloatingTip';
 import { sound, triggerHaptic } from '@/lib/sound';
-import { Clock, CheckCircle2 } from 'lucide-react';
+import { Clock, CheckCircle2, Lock } from 'lucide-react';
 
 interface ActionControlsProps {
   player: Player | null;
@@ -13,6 +13,7 @@ interface ActionControlsProps {
   minRaise: number;
   isMyTurn: boolean;
   isHandStarted?: boolean;
+  isAwaitingNextStreet?: boolean;
   isSubmitting?: boolean;
   raiseRule?: 'standard' | 'casual';
   onFold: () => void;
@@ -28,6 +29,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   minRaise,
   isMyTurn,
   isHandStarted = true,
+  isAwaitingNextStreet = false,
   isSubmitting = false,
   raiseRule = 'standard',
   onFold,
@@ -49,6 +51,8 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
       ? (currentHighestBet === 0 ? minRaise : currentHighestBet + 1)
       : (currentHighestBet === 0 ? minRaise : currentHighestBet + minRaise);
   const canRaise = player.chips > toCall;
+
+  const isActionLocked = isAwaitingNextStreet || !isHandStarted || !isMyTurn || player.status !== 'active';
 
   const handleFold = () => {
     sound.playFold();
@@ -90,7 +94,14 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {!isHandStarted ? (
+          {isAwaitingNextStreet ? (
+            <>
+              <Lock size={15} color="#38bdf8" />
+              <span style={{ color: '#38bdf8', fontSize: '0.82rem', fontWeight: 700 }}>
+                🔒 จบรอบเดิมพัน • ล็อคการกระทำเพื่อรอเปิด &apos;ไพ่ต่อไป&apos;
+              </span>
+            </>
+          ) : !isHandStarted ? (
             <>
               <Clock size={15} color="#fbbf24" />
               <span style={{ color: '#fbbf24', fontSize: '0.82rem', fontWeight: 700 }}>
@@ -125,7 +136,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             type="button"
             className="action-btn fold"
             onClick={handleFold}
-            disabled={!isHandStarted || !isMyTurn || player.status !== 'active'}
+            disabled={isActionLocked}
           >
             <span>Fold</span>
           </button>
@@ -143,7 +154,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
                 type="button"
                 className="action-btn check"
                 onClick={handleCheck}
-                disabled={!isHandStarted || !isMyTurn || player.status !== 'active'}
+                disabled={isActionLocked}
               >
                 <span>Check</span>
                 <span className="btn-sub-text">ฟรี</span>
@@ -159,7 +170,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
                 type="button"
                 className="action-btn call"
                 onClick={handleCall}
-                disabled={!isHandStarted || !isMyTurn || player.status !== 'active' || !canCall}
+                disabled={isActionLocked || !canCall}
               >
                 <span>Call</span>
                 <span className="btn-sub-text">
@@ -184,7 +195,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             type="button"
             className="action-btn raise"
             onClick={handleRaiseClick}
-            disabled={!isHandStarted || !isMyTurn || player.status !== 'active' || !canRaise}
+            disabled={isActionLocked || !canRaise}
           >
             <span>Raise</span>
             <span className="btn-sub-text">

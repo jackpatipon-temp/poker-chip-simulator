@@ -168,5 +168,11 @@ export const movePlayerSeat = (
   return room.toJSON();
 };
 
+export const progressRoomNextStreet = (state: RoomState): RoomState => {
+  const room = PokerRoom.fromState(state);
+  room.progressToNextStreet();
+  return room.toJSON();
+};
+
 // Re-export OOP models and classes
 export * from './oop';

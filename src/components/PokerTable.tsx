@@ -13,8 +13,10 @@ interface PokerTableProps {
   currentUserId: string;
   roomPin?: string;
   isHost?: boolean;
+  isAwaitingNextStreet?: boolean;
   onStartHand?: () => void;
   onOpenSeating?: () => void;
+  onNextStreet?: () => void;
 }
 
 interface FlyingCoin {
@@ -31,8 +33,10 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   currentUserId,
   roomPin,
   isHost,
+  isAwaitingNextStreet = false,
   onStartHand,
   onOpenSeating,
+  onNextStreet,
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [flyingCoins, setFlyingCoins] = React.useState<FlyingCoin[]>([]);
@@ -110,6 +114,17 @@ export const PokerTable: React.FC<PokerTableProps> = ({
 
   const isHandActive = pot > 0 || street !== 'preflop';
 
+  const nextStreetName = {
+    preflop: 'Flop',
+    flop: 'Turn',
+    turn: 'River',
+    river: 'Showdown',
+    showdown: '',
+  }[street];
+
+  const currentUserPlayer = players.find(p => p.id === currentUserId);
+  const canTriggerNextStreet = Boolean(isHost || currentUserPlayer?.isDealer);
+
   return (
     <div className="table-area">
       <div className="poker-table">
@@ -140,6 +155,29 @@ export const PokerTable: React.FC<PokerTableProps> = ({
               <div className="table-street-badge" title={`Street ปัจจุบัน: ${street}`}>
                 <span>{street.toUpperCase()}</span>
               </div>
+
+              {/* Button "ไพ่ต่อไป" placed directly below the street badge */}
+              {isHandActive && street !== 'showdown' && (
+                <button
+                  type="button"
+                  className={`next-street-btn ${isAwaitingNextStreet ? 'highlight-pulse' : ''}`}
+                  onClick={() => {
+                    if (!canTriggerNextStreet) return;
+                    sound.playChip();
+                    triggerHaptic(25);
+                    onNextStreet?.();
+                  }}
+                  disabled={!canTriggerNextStreet}
+                  title={
+                    canTriggerNextStreet
+                      ? `กดเพื่อเปิดไพ่จริง ${nextStreetName} และเริ่มรอบต่อไป`
+                      : `รอ Host หรือ Dealer เปิดไพ่ ${nextStreetName}`
+                  }
+                >
+                  <span style={{ fontSize: '0.82rem' }}>🃏</span>
+                  <span>{canTriggerNextStreet ? `ไพ่ต่อไป (${nextStreetName})` : `รอเปิด (${nextStreetName})`}</span>
+                </button>
+              )}
             </>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '4px 8px' }}>

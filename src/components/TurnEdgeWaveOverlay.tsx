@@ -24,12 +24,6 @@ export const TurnEdgeWaveOverlay: React.FC<TurnEdgeWaveOverlayProps> = ({ isActi
       <div className="edge-wave-bar edge-bottom" />
       <div className="edge-wave-bar edge-left" />
       <div className="edge-wave-bar edge-right" />
-
-      {/* 4 Corner Neon Wave Accents */}
-      <div className="edge-corner corner-tl" />
-      <div className="edge-corner corner-tr" />
-      <div className="edge-corner corner-bl" />
-      <div className="edge-corner corner-br" />
     </div>
   );
 };

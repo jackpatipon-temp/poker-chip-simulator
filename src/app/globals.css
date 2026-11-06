@@ -841,11 +841,12 @@ button:active {
    TURN EDGE WAVE ANIMATION (เมื่อถึงตาผู้เล่นคนนั้น)
    ========================================================================== */
 .turn-edge-wave-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 850;
   overflow: hidden;
+  border-radius: inherit;
   animation: turnOverlayFadeIn 0.35s ease-out forwards;
 }
 
@@ -859,26 +860,27 @@ button:active {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  border-radius: inherit;
   box-shadow:
-    inset 0 0 24px rgba(16, 185, 129, 0.75),
-    inset 0 0 65px rgba(6, 182, 212, 0.45),
-    inset 0 0 120px rgba(16, 185, 129, 0.2);
+    inset 0 0 20px rgba(16, 185, 129, 0.75),
+    inset 0 0 50px rgba(6, 182, 212, 0.45),
+    inset 0 0 100px rgba(16, 185, 129, 0.2);
   animation: edgeWaveBreathe 2s ease-in-out infinite alternate;
 }
 
 @keyframes edgeWaveBreathe {
   0% {
     box-shadow:
-      inset 0 0 18px rgba(16, 185, 129, 0.6),
-      inset 0 0 45px rgba(6, 182, 212, 0.35),
-      inset 0 0 90px rgba(16, 185, 129, 0.12);
+      inset 0 0 16px rgba(16, 185, 129, 0.6),
+      inset 0 0 40px rgba(6, 182, 212, 0.35),
+      inset 0 0 80px rgba(16, 185, 129, 0.12);
     opacity: 0.75;
   }
   100% {
     box-shadow:
-      inset 0 0 36px rgba(16, 185, 129, 0.95),
-      inset 0 0 85px rgba(6, 182, 212, 0.65),
-      inset 0 0 150px rgba(16, 185, 129, 0.3);
+      inset 0 0 32px rgba(16, 185, 129, 0.95),
+      inset 0 0 75px rgba(6, 182, 212, 0.65),
+      inset 0 0 140px rgba(16, 185, 129, 0.3);
     opacity: 1;
   }
 }
@@ -893,44 +895,44 @@ button:active {
   top: 0;
   left: 0;
   right: 0;
-  height: 5px;
+  height: 4px;
   background: linear-gradient(90deg, #10b981 0%, #06b6d4 25%, #3b82f6 50%, #10b981 75%, #06b6d4 100%);
   background-size: 200% 100%;
   animation: waveMoveHorizontal 2s linear infinite;
-  box-shadow: 0 0 16px #10b981, 0 0 28px #06b6d4;
+  box-shadow: 0 0 12px #10b981, 0 0 24px #06b6d4;
 }
 
 .edge-bottom {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 5px;
+  height: 4px;
   background: linear-gradient(90deg, #06b6d4 0%, #3b82f6 25%, #10b981 50%, #06b6d4 75%, #3b82f6 100%);
   background-size: 200% 100%;
   animation: waveMoveHorizontalReverse 2s linear infinite;
-  box-shadow: 0 0 16px #10b981, 0 0 28px #06b6d4;
+  box-shadow: 0 0 12px #10b981, 0 0 24px #06b6d4;
 }
 
 .edge-left {
   top: 0;
   bottom: 0;
   left: 0;
-  width: 5px;
+  width: 4px;
   background: linear-gradient(180deg, #10b981 0%, #06b6d4 25%, #3b82f6 50%, #10b981 75%, #06b6d4 100%);
   background-size: 100% 200%;
   animation: waveMoveVerticalReverse 2s linear infinite;
-  box-shadow: 0 0 16px #10b981, 0 0 28px #06b6d4;
+  box-shadow: 0 0 12px #10b981, 0 0 24px #06b6d4;
 }
 
 .edge-right {
   top: 0;
   bottom: 0;
   right: 0;
-  width: 5px;
+  width: 4px;
   background: linear-gradient(180deg, #06b6d4 0%, #3b82f6 25%, #10b981 50%, #06b6d4 75%, #3b82f6 100%);
   background-size: 100% 200%;
   animation: waveMoveVertical 2s linear infinite;
-  box-shadow: 0 0 16px #10b981, 0 0 28px #06b6d4;
+  box-shadow: 0 0 12px #10b981, 0 0 24px #06b6d4;
 }
 
 @keyframes waveMoveHorizontal {
@@ -951,45 +953,5 @@ button:active {
 @keyframes waveMoveVerticalReverse {
   0% { background-position: 50% 200%; }
   100% { background-position: 50% 0%; }
-}
-
-/* Corner Accents */
-.edge-corner {
-  position: absolute;
-  width: 36px;
-  height: 36px;
-  pointer-events: none;
-}
-
-.corner-tl {
-  top: 0;
-  left: 0;
-  border-top: 3.5px solid #34d399;
-  border-left: 3.5px solid #34d399;
-  box-shadow: 0 0 16px #10b981;
-}
-
-.corner-tr {
-  top: 0;
-  right: 0;
-  border-top: 3.5px solid #38bdf8;
-  border-right: 3.5px solid #38bdf8;
-  box-shadow: 0 0 16px #06b6d4;
-}
-
-.corner-bl {
-  bottom: 0;
-  left: 0;
-  border-bottom: 3.5px solid #38bdf8;
-  border-left: 3.5px solid #38bdf8;
-  box-shadow: 0 0 16px #06b6d4;
-}
-
-.corner-br {
-  bottom: 0;
-  right: 0;
-  border-bottom: 3.5px solid #34d399;
-  border-right: 3.5px solid #34d399;
-  box-shadow: 0 0 16px #10b981;
 }
 

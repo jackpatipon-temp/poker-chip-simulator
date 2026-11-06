@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Maximize2, Minimize2, Settings, ShieldCheck, Coffee, Menu } from 'lucide-react';
+import { Maximize2, Minimize2, Settings, ShieldCheck, Coffee, Menu, FileText, Plus } from 'lucide-react';
 import { Street } from '@/types/poker';
 import { sound, triggerHaptic } from '@/lib/sound';
 
@@ -18,6 +18,8 @@ interface HeaderBarProps {
   onToggleSittingOut: () => void;
   onOpenSettings: () => void;
   onOpenAdmin: () => void;
+  onOpenLogs?: () => void;
+  onOpenRebuy?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -32,6 +34,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onToggleSittingOut,
   onOpenSettings,
   onOpenAdmin,
+  onOpenLogs,
+  onOpenRebuy,
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -75,16 +79,28 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </button>
 
         {isHost && (
-          <button
-            type="button"
-            className="icon-btn"
-            style={{ borderColor: 'rgba(139, 92, 246, 0.4)', color: '#a78bfa' }}
-            onClick={onOpenAdmin}
-            title="แผงควบคุมโฮสต์ (Admin Controls)"
-            aria-label="Admin Controls"
-          >
-            <ShieldCheck size={20} />
-          </button>
+          <>
+            <button
+              type="button"
+              className="icon-btn"
+              style={{ borderColor: 'rgba(139, 92, 246, 0.4)', color: '#a78bfa' }}
+              onClick={onOpenAdmin}
+              title="แผงควบคุมโฮสต์ (Admin Controls)"
+              aria-label="Admin Controls"
+            >
+              <ShieldCheck size={20} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              style={{ borderColor: 'rgba(59, 130, 246, 0.4)', color: '#60a5fa' }}
+              onClick={onOpenLogs}
+              title="ดูบันทึกยอดชิป & ประวัติห้อง (Room Logs)"
+              aria-label="Room Logs"
+            >
+              <FileText size={19} />
+            </button>
+          </>
         )}
 
         <button
@@ -110,6 +126,32 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       </div>
 
       <div className="header-right">
+        {onOpenRebuy && (
+          <button
+            type="button"
+            className="rebuy-header-btn"
+            style={{
+              padding: '4px 10px',
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: '1px solid rgba(245, 158, 11, 0.45)',
+              borderRadius: 9999,
+              color: '#fde68a',
+              fontSize: '0.74rem',
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+            onClick={onOpenRebuy}
+            title="ขอเพิ่มชิป (Rebuy)"
+          >
+            <span>🪙</span>
+            <span>+ชิป</span>
+          </button>
+        )}
+
         {userAvatar && (
           <div
             style={{

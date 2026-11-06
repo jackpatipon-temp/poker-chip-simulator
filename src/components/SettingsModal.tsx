@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Volume2, VolumeX, Smartphone, LogOut, Coffee, ShieldAlert, Maximize2 } from 'lucide-react';
+import { X, Volume2, VolumeX, Smartphone, LogOut, Coffee, ShieldAlert, Maximize2, Coins } from 'lucide-react';
 import { sound, triggerHaptic } from '@/lib/sound';
 
 interface SettingsModalProps {
@@ -15,6 +15,7 @@ interface SettingsModalProps {
   onToggleSittingOut: () => void;
   onLeaveRoom: () => void;
   onOpenDisclaimer: () => void;
+  onOpenRebuy?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -28,6 +29,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleSittingOut,
   onLeaveRoom,
   onOpenDisclaimer,
+  onOpenRebuy,
 }) => {
   if (!isOpen) return null;
 
@@ -114,6 +116,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
           </button>
+
+          {/* Request More Chips (Rebuy) */}
+          {onOpenRebuy && (
+            <button
+              type="button"
+              className="secondary-btn"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderColor: 'rgba(245, 158, 11, 0.4)',
+                background: 'rgba(245, 158, 11, 0.1)',
+              }}
+              onClick={() => {
+                onClose();
+                onOpenRebuy();
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Coins size={18} color="#f59e0b" />
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fef08a' }}>
+                    ขอเพิ่มชิป (Rebuy)
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    ส่งคำขอเพิ่มชิปไปยัง Host
+                  </div>
+                </div>
+              </div>
+            </button>
+          )}
 
           {/* View Legal Disclaimer */}
           <button

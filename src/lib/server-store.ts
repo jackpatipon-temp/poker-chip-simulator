@@ -11,6 +11,10 @@ import {
   movePlayerSeat,
   setRoomNextBlinds,
   progressRoomNextStreet,
+  requestRebuyChips,
+  approveRoomRequest,
+  rejectRoomRequest,
+  removePlayerFromRoom,
 } from './poker-engine';
 
 import { EventEmitter } from 'events';
@@ -235,33 +239,10 @@ export const approveJoinRequest = (
     return room;
   }
 
-  const reqIndex = room.pendingRequests.findIndex(r => r.id === requestId);
-  if (reqIndex === -1) return room;
-
-  const req = room.pendingRequests[reqIndex];
-  room.pendingRequests.splice(reqIndex, 1);
-
-  const newPlayer: Player = {
-    id: req.userId,
-    name: req.userName,
-    avatarUrl: req.userAvatar,
-    chips,
-    currentBet: 0,
-    totalRoundBet: 0,
-    status: 'active',
-    seatIndex: room.players.length,
-    isDealer: false,
-    isSmallBlind: false,
-    isBigBlind: false,
-    isTurn: false,
-    isHost: false,
-    isApproved: true,
-    hasActedThisRound: false,
-  };
-
-  room.players.push(newPlayer);
-  broadcastRoomUpdate(room);
-  return room;
+  const updated = approveRoomRequest(room, requestId, chips);
+  roomsMap.set(pin, updated);
+  broadcastRoomUpdate(updated);
+  return updated;
 };
 
 export const rejectJoinRequest = (
@@ -277,9 +258,10 @@ export const rejectJoinRequest = (
     return room;
   }
 
-  room.pendingRequests = room.pendingRequests.filter(r => r.id !== requestId);
-  broadcastRoomUpdate(room);
-  return room;
+  const updated = rejectRoomRequest(room, requestId);
+  roomsMap.set(pin, updated);
+  broadcastRoomUpdate(updated);
+  return updated;
 };
 
 export const dispatchServerRoomAction = (
@@ -302,11 +284,16 @@ export const dispatchServerRoomAction = (
       | 'SWAP_SEATS'
       | 'MOVE_SEAT'
       | 'TRANSFER_HOST'
-      | 'SET_NEXT_BLINDS';
+      | 'SET_NEXT_BLINDS'
+      | 'REQUEST_REBUY'
+      | 'APPROVE'
+      | 'REJECT';
     requesterId?: string;
     playerId?: string;
     targetPlayerId?: string;
     newHostId?: string;
+    requestId?: string;
+    chips?: number;
     direction?: 'up' | 'down';
     action?: 'fold' | 'check' | 'call' | 'raise' | 'all-in';
     raiseAmount?: number;
@@ -462,31 +449,35 @@ export const dispatchServerRoomAction = (
       }
       break;
 
+    case 'REQUEST_REBUY':
+      if (actionPayload.playerId && actionPayload.chips) {
+        updated = requestRebuyChips(room, actionPayload.playerId, actionPayload.chips);
+      }
+      break;
+
+    case 'APPROVE':
+      if (!isHost) {
+        console.warn('Unauthorized APPROVE attempt by non-host:', requester);
+        break;
+      }
+      if (actionPayload.requestId) {
+        updated = approveRoomRequest(room, actionPayload.requestId, actionPayload.chips);
+      }
+      break;
+
+    case 'REJECT':
+      if (!isHost) {
+        console.warn('Unauthorized REJECT attempt by non-host:', requester);
+        break;
+      }
+      if (actionPayload.requestId) {
+        updated = rejectRoomRequest(room, actionPayload.requestId);
+      }
+      break;
+
     case 'LEAVE':
       if (actionPayload.playerId) {
-        // If the leaving player is host and a newHostId was designated
-        if (actionPayload.playerId === updated.hostId && actionPayload.newHostId) {
-          const designatedHost = updated.players.find(p => p.id === actionPayload.newHostId);
-          if (designatedHost) {
-            updated.hostId = designatedHost.id;
-            designatedHost.isHost = true;
-          }
-        }
-
-        updated.players = updated.players.filter(p => p.id !== actionPayload.playerId);
-        // Re-index remaining player seats
-        updated.players = updated.players.map((p, idx) => ({ ...p, seatIndex: idx }));
-
-        // Fallback: Transfer host if host left and other players remain, and hostId was not already assigned
-        if (updated.players.length > 0 && !updated.players.some(p => p.id === updated.hostId)) {
-          updated.hostId = updated.players[0].id;
-          updated.players[0].isHost = true;
-        }
-
-        if (updated.players.length > 0) {
-          updated.dealerIndex = updated.dealerIndex % updated.players.length;
-          updated.activePlayerIndex = updated.activePlayerIndex % updated.players.length;
-        }
+        updated = removePlayerFromRoom(room, actionPayload.playerId, actionPayload.newHostId);
       }
       break;
 

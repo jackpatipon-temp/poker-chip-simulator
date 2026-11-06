@@ -24,6 +24,7 @@ interface AdminPanelProps {
   onToggleAfk?: (playerId: string) => void;
   onKickPlayer?: (playerId: string) => void;
   onTransferHost?: (playerId: string) => void;
+  onOpenLogs?: () => void;
   initialTab?: 'seating' | 'requests' | 'vote' | 'game';
 }
 
@@ -45,6 +46,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onToggleAfk,
   onKickPlayer,
   onTransferHost,
+  onOpenLogs,
   initialTab = 'seating',
 }) => {
   const [chipInputs, setChipInputs] = useState<Record<string, number>>({});
@@ -80,9 +82,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <Users size={22} />
             <h2 className="modal-title" style={{ fontSize: '1.2rem' }}>แผงจัดการห้อง (Room Setup)</h2>
           </div>
-          <button type="button" className="modal-close-btn" onClick={onClose}>
-            <X size={20} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {onOpenLogs && (
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  background: 'rgba(59, 130, 246, 0.2)',
+                  borderColor: '#3b82f6',
+                  color: '#93c5fd',
+                }}
+                onClick={() => {
+                  onClose();
+                  onOpenLogs();
+                }}
+                title="ดูประวัติห้องและยอดคงเหลือล่าสุดของผู้เล่นทุกคน"
+              >
+                📋 ดู Logs
+              </button>
+            )}
+            <button type="button" className="modal-close-btn" onClick={onClose}>
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Tab Switcher */}
@@ -460,7 +485,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     />
                     <div>
                       <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{req.userName}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ขอเข้าโต๊ะ</div>
+                      <div
+                        style={{
+                          fontSize: '0.72rem',
+                          color: req.type === 'rebuy' ? '#60a5fa' : 'var(--text-muted)',
+                          fontWeight: req.type === 'rebuy' ? 700 : 500,
+                        }}
+                      >
+                        {req.type === 'rebuy' ? '💰 ขอเพิ่มชิป (Rebuy)' : 'ขอเข้าโต๊ะ'}
+                      </div>
                     </div>
                   </div>
 

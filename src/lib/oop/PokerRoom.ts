@@ -1,4 +1,4 @@
-import { RoomState, Street, GameHistoryEntry, JoinRequest, Vote, ShowdownResult } from '@/types/poker';
+import { RoomState, Street, GameHistoryEntry, JoinRequest, Vote, ShowdownResult, PlayerLedgerRecord, RoomLogEntry } from '@/types/poker';
 import { Player, HostPlayer } from './Player';
 import { Pot } from './Pot';
 import { GameAction } from './actions/GameAction';
@@ -34,6 +34,8 @@ export class PokerRoom {
   private _lastShowdownResult?: ShowdownResult | null;
   private _isFirstHandStarted: boolean;
   private _isAwaitingNextStreet: boolean;
+  private _playerLedger: PlayerLedgerRecord[];
+  private _roomLogs: RoomLogEntry[];
 
   constructor(
     roomId: string,
@@ -67,6 +69,24 @@ export class PokerRoom {
     this._lastShowdownResult = null;
     this._isFirstHandStarted = false;
     this._isAwaitingNextStreet = false;
+    this._playerLedger = [
+      {
+        playerId: hostPlayer.id,
+        playerName: hostPlayer.name,
+        playerAvatar: hostPlayer.avatarUrl,
+        totalBuyIn: hostPlayer.chips,
+        currentChips: hostPlayer.chips,
+        status: 'active',
+      },
+    ];
+    this._roomLogs = [
+      {
+        id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        timestamp: Date.now(),
+        type: 'system',
+        message: `สร้างห้อง PIN: ${roomId} โดย ${hostPlayer.name} (ชิปเริ่มต้น: ${hostPlayer.chips.toLocaleString()})`,
+      },
+    ];
   }
 
   // --- Getters ---
@@ -94,6 +114,8 @@ export class PokerRoom {
   public get nextSmallBlind(): number | undefined { return this._nextSmallBlind; }
   public get nextBigBlind(): number | undefined { return this._nextBigBlind; }
   public get isAwaitingNextStreet(): boolean { return this._isAwaitingNextStreet; }
+  public get playerLedger(): PlayerLedgerRecord[] { return [...this._playerLedger]; }
+  public get roomLogs(): RoomLogEntry[] { return [...this._roomLogs]; }
 
   // --- Mutators ---
   public setAwaitingNextStreet(val: boolean): void {
@@ -154,21 +176,199 @@ export class PokerRoom {
     );
   }
 
+  public addRoomLog(type: RoomLogEntry['type'], message: string): void {
+    const entry: RoomLogEntry = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: Date.now(),
+      type,
+      message,
+    };
+    this._roomLogs = [entry, ...this._roomLogs].slice(0, 100);
+  }
+
   public addPlayer(player: Player): void {
     player.setSeatIndex(this._players.length);
     this._players.push(player);
+
+    const existing = this._playerLedger.find(l => l.playerId === player.id);
+    if (existing) {
+      existing.status = 'active';
+      existing.currentChips = player.chips;
+      existing.leftAt = undefined;
+    } else {
+      this._playerLedger.push({
+        playerId: player.id,
+        playerName: player.name,
+        playerAvatar: player.avatarUrl,
+        totalBuyIn: player.chips,
+        currentChips: player.chips,
+        status: 'active',
+      });
+    }
   }
 
-  public removePlayer(playerId: string): void {
+  public removePlayer(playerId: string, newHostId?: string): void {
+    const leavingPlayer = this._players.find(p => p.id === playerId);
+    if (!leavingPlayer) return;
+
+    const chipsWagered = (leavingPlayer.totalRoundBet || leavingPlayer.currentBet || 0);
+    const remainingChips = leavingPlayer.chips;
+
+    // Update player ledger so Host always knows exactly how much chips this player left with!
+    const ledger = this._playerLedger.find(l => l.playerId === playerId);
+    if (ledger) {
+      ledger.status = 'left';
+      ledger.currentChips = remainingChips;
+      ledger.leftAt = Date.now();
+      ledger.lastLeftBetInPot = chipsWagered;
+    } else {
+      this._playerLedger.push({
+        playerId: leavingPlayer.id,
+        playerName: leavingPlayer.name,
+        playerAvatar: leavingPlayer.avatarUrl,
+        totalBuyIn: remainingChips + chipsWagered,
+        currentChips: remainingChips,
+        status: 'left',
+        leftAt: Date.now(),
+        lastLeftBetInPot: chipsWagered,
+      });
+    }
+
+    this.addRoomLog(
+      'leave',
+      `${leavingPlayer.name} ออกจากห้อง (ชิปคงเหลือติดตัว: ${remainingChips.toLocaleString()} ชิป${chipsWagered > 0 ? `, เสียชิปที่ลงใน Pot: ${chipsWagered.toLocaleString()} ชิป` : ''})`
+    );
+
+    // If leaving player was host and a new host was designated
+    if (playerId === this._hostId && newHostId) {
+      const designatedHost = this._players.find(p => p.id === newHostId);
+      if (designatedHost) {
+        this._hostId = designatedHost.id;
+        designatedHost.setHost(true);
+      }
+    }
+
+    const wasTurn = leavingPlayer.isTurn;
     this._players = this._players.filter(p => p.id !== playerId);
-    // Re-index seats
     this._players.forEach((p, idx) => p.setSeatIndex(idx));
 
-    // Transfer host if needed
+    // Fallback: transfer host if host left without designated new host
     if (this._players.length > 0 && !this._players.some(p => p.id === this._hostId)) {
       this._hostId = this._players[0].id;
       this._players[0].setHost(true);
     }
+
+    if (this._players.length === 0) {
+      this._dealerIndex = 0;
+      this._activePlayerIndex = 0;
+      return;
+    }
+
+    this._dealerIndex = this._dealerIndex % this._players.length;
+
+    // Handle active hand scenario: chips wagered already in pot remain in pot!
+    if (this._street !== 'showdown' && this._isFirstHandStarted) {
+      const inHand = this.getPlayersInHand();
+      if (inHand.length === 1) {
+        const soleSurvivor = inHand[0];
+        this.awardPotToWinners([soleSurvivor.id]);
+        this._street = 'showdown';
+        this._isAwaitingNextStreet = false;
+        this.addRoomLog('pot_win', `${soleSurvivor.name} ชนะกองกลาง ${this._pot.amount.toLocaleString()} ชิป (ผู้เล่นคนอื่นออกจากห้อง/หมอบหมด)`);
+      } else if (inHand.length > 1) {
+        if (this.isBettingRoundComplete()) {
+          this._isAwaitingNextStreet = true;
+          this._players.forEach(p => p.setTurn(false));
+        } else if (wasTurn) {
+          const nextIdx = this.getNextActiveIndex(this._dealerIndex);
+          this.setActiveTurnIndex(nextIdx);
+        }
+      }
+    } else {
+      this._activePlayerIndex = this._activePlayerIndex % this._players.length;
+    }
+  }
+
+  public requestRebuy(playerId: string, chips: number): boolean {
+    const player = this._players.find(p => p.id === playerId);
+    if (!player || chips <= 0) return false;
+
+    const existing = this._pendingRequests.find(r => r.userId === playerId && r.type === 'rebuy');
+    if (existing) return false;
+
+    const req: JoinRequest = {
+      id: `rebuy_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: player.id,
+      userName: player.name,
+      userAvatar: player.avatarUrl,
+      requestedChips: chips,
+      createdAt: Date.now(),
+      type: 'rebuy',
+    };
+    this._pendingRequests.push(req);
+    this.addRoomLog('rebuy', `${player.name} ขอเพิ่มชิป +${chips.toLocaleString()} ชิป (รอ Host อนุมัติ)`);
+    return true;
+  }
+
+  public approveRequest(requestId: string, overrideChips?: number): boolean {
+    const reqIndex = this._pendingRequests.findIndex(r => r.id === requestId);
+    if (reqIndex === -1) return false;
+
+    const req = this._pendingRequests[reqIndex];
+    this._pendingRequests.splice(reqIndex, 1);
+    const approvedChips = overrideChips || req.requestedChips || 1000;
+
+    const existingPlayer = this._players.find(p => p.id === req.userId);
+    if (existingPlayer) {
+      // Rebuy for existing player
+      existingPlayer.setChips(existingPlayer.chips + approvedChips);
+      if (existingPlayer.status === 'sitting-out' && existingPlayer.chips > 0) {
+        existingPlayer.setStatus('active');
+      }
+
+      // Update Ledger
+      const ledger = this._playerLedger.find(l => l.playerId === existingPlayer.id);
+      if (ledger) {
+        ledger.totalBuyIn += approvedChips;
+        ledger.currentChips = existingPlayer.chips;
+        ledger.status = existingPlayer.status as any;
+      }
+
+      this.addRoomLog(
+        'rebuy',
+        `Host อนุมัติเพิ่มชิปให้ ${existingPlayer.name} +${approvedChips.toLocaleString()} ชิป (ยอดชิปปัจจุบัน: ${existingPlayer.chips.toLocaleString()})`
+      );
+    } else {
+      // New player join
+      const newPlayer = new Player(
+        req.userId,
+        req.userName,
+        req.userAvatar,
+        approvedChips,
+        this._players.length,
+        false
+      );
+      this.addPlayer(newPlayer);
+
+      this.addRoomLog(
+        'join',
+        `${req.userName} เข้าสู่ห้อง (ชิปเริ่มต้น: ${approvedChips.toLocaleString()})`
+      );
+    }
+    return true;
+  }
+
+  public rejectRequest(requestId: string): boolean {
+    const reqIndex = this._pendingRequests.findIndex(r => r.id === requestId);
+    if (reqIndex === -1) return false;
+
+    const req = this._pendingRequests[reqIndex];
+    this._pendingRequests.splice(reqIndex, 1);
+    this.addRoomLog(
+      'system',
+      `Host ปฏิเสธคำขอของ ${req.userName} (${req.type === 'rebuy' ? 'ขอเพิ่มชิป' : 'ขอเข้าห้อง'})`
+    );
+    return true;
   }
 
   public reopenBettingForOthers(actingPlayerId: string): void {
@@ -405,6 +605,21 @@ export class PokerRoom {
     const { potResults } = this._pot.awardWinners(winners, potWinnerMap);
     this._winnerIds = resolvedWinnerIds;
 
+    // Sync player ledger with updated chips
+    this._players.forEach(p => {
+      const ledger = this._playerLedger.find(l => l.playerId === p.id);
+      if (ledger) {
+        ledger.currentChips = p.chips;
+        ledger.status = p.status as any;
+      }
+    });
+
+    const winnerNames = winners.map(w => w.name).join(', ') || 'ผู้ชนะ';
+    this.addRoomLog(
+      'pot_win',
+      `จบ Showdown: แจกเงินกองกลาง ${totalPotBeforeAward.toLocaleString()} ชิป ให้ ${winnerNames}`
+    );
+
     this._lastShowdownResult = {
       id: `sd_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       timestamp: Date.now(),
@@ -520,6 +735,8 @@ export class PokerRoom {
       lastShowdownResult: this._lastShowdownResult,
       isFirstHandStarted: this._isFirstHandStarted,
       isAwaitingNextStreet: this._isAwaitingNextStreet,
+      playerLedger: this._playerLedger,
+      roomLogs: this._roomLogs,
     };
   }
 
@@ -559,6 +776,8 @@ export class PokerRoom {
       : null;
     room._isFirstHandStarted = !!state.isFirstHandStarted;
     room._isAwaitingNextStreet = Boolean(state.isAwaitingNextStreet);
+    room._playerLedger = Array.isArray(state.playerLedger) ? state.playerLedger.map(l => ({ ...l })) : room._playerLedger;
+    room._roomLogs = Array.isArray(state.roomLogs) ? state.roomLogs.map(lg => ({ ...lg })) : room._roomLogs;
 
     return room;
   }

@@ -95,6 +95,8 @@ export interface RoomState {
   deckBurnCount?: number;
   isFirstHandStarted?: boolean;
   isAwaitingNextStreet?: boolean;
+  playerLedger?: PlayerLedgerRecord[];
+  roomLogs?: RoomLogEntry[];
 }
 
 export interface JoinRequest {
@@ -104,6 +106,25 @@ export interface JoinRequest {
   userAvatar: string;
   requestedChips: number;
   createdAt: number;
+  type?: 'join' | 'rebuy';
+}
+
+export interface PlayerLedgerRecord {
+  playerId: string;
+  playerName: string;
+  playerAvatar?: string;
+  totalBuyIn: number;
+  currentChips: number;
+  status: 'active' | 'sitting-out' | 'left';
+  leftAt?: number;
+  lastLeftBetInPot?: number;
+}
+
+export interface RoomLogEntry {
+  id: string;
+  timestamp: number;
+  type: 'join' | 'leave' | 'rebuy' | 'pot_win' | 'bet' | 'system';
+  message: string;
 }
 
 export interface GameHistoryEntry {

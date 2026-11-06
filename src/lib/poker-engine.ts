@@ -174,5 +174,29 @@ export const progressRoomNextStreet = (state: RoomState): RoomState => {
   return room.toJSON();
 };
 
+export const requestRebuyChips = (state: RoomState, playerId: string, chips: number): RoomState => {
+  const room = PokerRoom.fromState(state);
+  room.requestRebuy(playerId, chips);
+  return room.toJSON();
+};
+
+export const approveRoomRequest = (state: RoomState, requestId: string, chips?: number): RoomState => {
+  const room = PokerRoom.fromState(state);
+  room.approveRequest(requestId, chips);
+  return room.toJSON();
+};
+
+export const rejectRoomRequest = (state: RoomState, requestId: string): RoomState => {
+  const room = PokerRoom.fromState(state);
+  room.rejectRequest(requestId);
+  return room.toJSON();
+};
+
+export const removePlayerFromRoom = (state: RoomState, playerId: string, newHostId?: string): RoomState => {
+  const room = PokerRoom.fromState(state);
+  room.removePlayer(playerId, newHostId);
+  return room.toJSON();
+};
+
 // Re-export OOP models and classes
 export * from './oop';

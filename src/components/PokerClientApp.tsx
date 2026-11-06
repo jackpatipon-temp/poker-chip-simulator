@@ -14,6 +14,8 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { DisclaimerModal } from '@/components/DisclaimerModal';
 import { LobbyView } from '@/components/LobbyView';
 import { HostTransferModal } from '@/components/HostTransferModal';
+import { RoomLogsModal } from '@/components/RoomLogsModal';
+import { RebuyModal } from '@/components/RebuyModal';
 import { TurnEdgeWaveOverlay } from '@/components/TurnEdgeWaveOverlay';
 import { subscribeToSupabaseRoomRealtime } from '@/lib/supabase-room';
 import { createRoom, joinRoom, dispatchRoomAction, fetchRoomState } from '@/lib/room-service';
@@ -63,6 +65,8 @@ export function PokerClientApp({
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isRoomLogsOpen, setIsRoomLogsOpen] = useState(false);
+  const [isRebuyModalOpen, setIsRebuyModalOpen] = useState(false);
   const [isHostTransferModalOpen, setIsHostTransferModalOpen] = useState(false);
   const [isJoinRejected, setIsJoinRejected] = useState(false);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
@@ -463,6 +467,14 @@ export function PokerClientApp({
     [sendRoomAction]
   );
 
+  const handleRequestRebuy = useCallback(
+    (chips: number) => {
+      if (!currentUserId) return;
+      sendRoomAction({ type: 'REQUEST_REBUY', playerId: currentUserId, chips });
+    },
+    [currentUserId, sendRoomAction]
+  );
+
   const handleCreateVote = useCallback(
     (title: string, options: string[]) => {
       sendRoomAction({
@@ -674,7 +686,15 @@ export function PokerClientApp({
               }}
             >
               <div style={{ fontSize: '0.82rem', color: 'white', fontWeight: 600 }}>
-                🔔 <strong>{roomState.pendingRequests[0].userName}</strong> ขอเข้าโต๊ะ ({roomState.pendingRequests[0].requestedChips} ชิป)
+                {roomState.pendingRequests[0].type === 'rebuy' ? (
+                  <>
+                    💰 <strong>{roomState.pendingRequests[0].userName}</strong> ขอเพิ่มชิป (+{roomState.pendingRequests[0].requestedChips?.toLocaleString()} ชิป)
+                  </>
+                ) : (
+                  <>
+                    🔔 <strong>{roomState.pendingRequests[0].userName}</strong> ขอเข้าโต๊ะ ({roomState.pendingRequests[0].requestedChips?.toLocaleString()} ชิป)
+                  </>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button
@@ -753,6 +773,8 @@ export function PokerClientApp({
             onToggleSittingOut={handleToggleSittingOut}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenAdmin={isHost ? () => setIsAdminPanelOpen(true) : () => {}}
+            onOpenLogs={isHost ? () => setIsRoomLogsOpen(true) : undefined}
+            onOpenRebuy={() => setIsRebuyModalOpen(true)}
           />
 
           {/* Oval Table */}
@@ -784,6 +806,7 @@ export function PokerClientApp({
             onCheck={handleCheck}
             onCall={handleCall}
             onOpenRaiseModal={() => setIsRaiseModalOpen(true)}
+            onOpenRebuy={() => setIsRebuyModalOpen(true)}
           />
 
           {/* Raise Modal */}
@@ -840,8 +863,29 @@ export function PokerClientApp({
               onToggleAfk={handleToggleAfk}
               onKickPlayer={handleKickPlayer}
               onTransferHost={handleTransferHost}
+              onOpenLogs={() => setIsRoomLogsOpen(true)}
             />
           )}
+
+          {/* Room Logs & Player Ledger Modal (Host Only) */}
+          {isHost && (
+            <RoomLogsModal
+              isOpen={isRoomLogsOpen}
+              state={roomState}
+              onClose={() => setIsRoomLogsOpen(false)}
+            />
+          )}
+
+          {/* Rebuy / Request More Chips Modal */}
+          <RebuyModal
+            isOpen={isRebuyModalOpen}
+            player={currentPlayer || activeActor}
+            pendingRequest={roomState.pendingRequests.find(
+              r => r.userId === currentUserId && r.type === 'rebuy'
+            )}
+            onRequestRebuy={handleRequestRebuy}
+            onClose={() => setIsRebuyModalOpen(false)}
+          />
 
           {/* Interactive Vote Modal */}
           <VoteModal
@@ -865,6 +909,7 @@ export function PokerClientApp({
             onToggleSittingOut={handleToggleSittingOut}
             onLeaveRoom={handleInitiateLeave}
             onOpenDisclaimer={() => setIsDisclaimerOpen(true)}
+            onOpenRebuy={() => setIsRebuyModalOpen(true)}
           />
         </>
       )}

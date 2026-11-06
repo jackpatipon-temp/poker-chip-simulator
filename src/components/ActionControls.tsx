@@ -20,6 +20,7 @@ interface ActionControlsProps {
   onCheck: () => void;
   onCall: () => void;
   onOpenRaiseModal: () => void;
+  onOpenRebuy?: () => void;
 }
 
 export const ActionControls: React.FC<ActionControlsProps> = ({
@@ -36,6 +37,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   onCheck,
   onCall,
   onOpenRaiseModal,
+  onOpenRebuy,
 }) => {
   if (!player) return null;
 
@@ -123,6 +125,27 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             </>
           )}
         </div>
+
+        {player.chips === 0 && onOpenRebuy && (
+          <button
+            type="button"
+            className="secondary-btn"
+            style={{
+              padding: '2px 8px',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              background: 'rgba(245, 158, 11, 0.25)',
+              borderColor: '#f59e0b',
+              color: '#fef08a',
+              borderRadius: 6,
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+            }}
+            onClick={onOpenRebuy}
+          >
+            🪙 ขอชิปเพิ่ม
+          </button>
+        )}
       </div>
 
       <div className="action-buttons-row">

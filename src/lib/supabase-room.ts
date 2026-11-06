@@ -13,6 +13,10 @@ import {
   movePlayerSeat,
   setRoomNextBlinds,
   progressRoomNextStreet,
+  requestRebuyChips,
+  approveRoomRequest,
+  rejectRoomRequest,
+  removePlayerFromRoom,
 } from './poker-engine';
 
 export interface SupabaseRoomRow {
@@ -367,25 +371,14 @@ export const dispatchSupabaseRoomAction = async (
         }));
       }
       break;
+    case 'REQUEST_REBUY':
+      if (actionPayload.playerId && actionPayload.chips) {
+        updated = requestRebuyChips(room, actionPayload.playerId, actionPayload.chips);
+      }
+      break;
     case 'LEAVE':
       if (actionPayload.playerId) {
-        if (actionPayload.playerId === updated.hostId && actionPayload.newHostId) {
-          const nextH = updated.players.find(p => p.id === actionPayload.newHostId);
-          if (nextH) {
-            updated.hostId = nextH.id;
-            nextH.isHost = true;
-          }
-        }
-        updated.players = updated.players.filter(p => p.id !== actionPayload.playerId);
-        updated.players = updated.players.map((p, idx) => ({ ...p, seatIndex: idx }));
-        if (updated.players.length > 0 && !updated.players.some(p => p.id === updated.hostId)) {
-          updated.hostId = updated.players[0].id;
-          updated.players[0].isHost = true;
-        }
-        if (updated.players.length > 0) {
-          updated.dealerIndex = updated.dealerIndex % updated.players.length;
-          updated.activePlayerIndex = updated.activePlayerIndex % updated.players.length;
-        }
+        updated = removePlayerFromRoom(room, actionPayload.playerId, actionPayload.newHostId);
       }
       break;
     case 'KICK_PLAYER':
@@ -407,28 +400,8 @@ export const dispatchSupabaseRoomAction = async (
         console.warn('Unauthorized APPROVE attempt by non-host:', requester);
         break;
       }
-      const reqIdx = updated.pendingRequests.findIndex(r => r.id === actionPayload.requestId);
-      if (reqIdx !== -1) {
-        const req = updated.pendingRequests[reqIdx];
-        updated.pendingRequests.splice(reqIdx, 1);
-        const newPlayer: Player = {
-          id: req.userId,
-          name: req.userName,
-          avatarUrl: req.userAvatar,
-          chips: actionPayload.chips || req.requestedChips || 1000,
-          currentBet: 0,
-          totalRoundBet: 0,
-          status: 'active',
-          seatIndex: updated.players.length,
-          isDealer: false,
-          isSmallBlind: false,
-          isBigBlind: false,
-          isTurn: false,
-          isHost: false,
-          isApproved: true,
-          hasActedThisRound: false,
-        };
-        updated.players.push(newPlayer);
+      if (actionPayload.requestId) {
+        updated = approveRoomRequest(room, actionPayload.requestId, actionPayload.chips);
       }
       break;
     case 'REJECT':
@@ -436,7 +409,9 @@ export const dispatchSupabaseRoomAction = async (
         console.warn('Unauthorized REJECT attempt by non-host:', requester);
         break;
       }
-      updated.pendingRequests = updated.pendingRequests.filter(r => r.id !== actionPayload.requestId);
+      if (actionPayload.requestId) {
+        updated = rejectRoomRequest(room, actionPayload.requestId);
+      }
       break;
   }
 

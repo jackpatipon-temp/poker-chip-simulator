@@ -186,6 +186,10 @@ export class Player {
     }
   }
 
+  public setChips(chips: number): void {
+    this._chips = Math.max(0, chips);
+  }
+
   public resetStreetBet(): void {
     // Preserve previous street's bet for subtle display until a new bet is made
     this._prevStreetBet = this._lastBetAmount ?? (this._currentBet > 0 ? this._currentBet : undefined);
